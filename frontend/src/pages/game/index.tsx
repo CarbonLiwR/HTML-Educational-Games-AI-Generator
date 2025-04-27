@@ -1,9 +1,9 @@
 // src/components/ChatLayout.jsx
 import React, {useEffect, useRef, useState} from "react";
-import {Layout, Button, Input, Typography, Space, List, Splitter, Spin, Flex, message, Popconfirm, Modal} from "antd";
+import {Layout, Button, Input, Typography, Splitter, Spin, message, Popconfirm, Modal, Popover} from "antd";
 import {EditOutlined, MailOutlined} from "@ant-design/icons";
 import {getToken} from "../../utils/auth.ts";
-import {CaretRightOutlined, VerticalAlignBottomOutlined,ClearOutlined} from "@ant-design/icons";
+import {CaretRightOutlined, VerticalAlignBottomOutlined,ClearOutlined,BookOutlined} from "@ant-design/icons";
 import axios from "axios";
 const {Header, Sider, Content, Footer} = Layout;
 const {Text} = Typography;
@@ -19,6 +19,7 @@ const Game = () => {
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const [game, setGame] = useState({}); // 存储回答内容的键值对字典
     const [gamelist,setGamelist]=useState([]);
+    const [changeNameGame, setChangeNameGame] = useState({}); // 存储回答内容的键值对字典
     const [newName, setNewName] = useState("");
     const [columns, setColumns] = useState(1);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -39,7 +40,7 @@ const Game = () => {
 
         const controller = new AbortController();
         try {
-            const response = await fetch('http://localhost:8000/api/v1/game/ask', {
+            const response = await fetch('http://localhost:8000/api/v1/game/ask_chain', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -61,7 +62,7 @@ const Game = () => {
             let fullAnswer = "";
 
             while (true) {
-                const {value, done} = await reader.read();
+                const { value, done } = await reader.read();
                 if (done) break;
 
                 const lines = decoder.decode(value).split("\n").filter(Boolean);
@@ -70,7 +71,15 @@ const Game = () => {
                     if (data.type === "heartbeat") {
                         console.log("❤️ 心跳");
                     } else if (data.type === "answer") {
-                        fullAnswer += data.text;
+                        // 拼接或组合返回的所有字段
+                        const { game_name, game_rules, result } = data;
+
+                        // 构造完整的结果
+                        fullAnswer = {
+                            game_name: game_name || "",
+                            game_rules: game_rules || "",
+                            result: result || ""
+                        };
                     }
                 }
             }
@@ -84,77 +93,113 @@ const Game = () => {
         }
     };
 
-    const askname = async (question: string) => {
-        setLoading(true);
 
-        const response = await fetch('http://localhost:8000/api/v1/game/askname', {
+    const askName = async (code) => {
+        try {
+            const response = await fetch('http://localhost:8000/api/v1/game/askname', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    question: question,
-                    user_token: token
+                    question: code, // 代码内容
+                    user_token: token, // 用户 token
                 }),
             });
-            // 检查响应状态
-            if (!response.ok) {
-                console.error(`请求失败，状态码: ${response.status}`);
-                throw new Error(`请求失败，状态码: ${response.status}`);
-            }
-            setLoading(true);
 
-            // 解析返回的 JSON 数据
-            const data = await response.json();
-            return data; // 返回解析后的数据
+            if (!response.ok) {
+                throw new Error("Failed to fetch game name");
+            }
+
+            const name = await response.text(); // 接口直接返回名字
+            return name.trim(); // 去除多余的换行符或空格
+        } catch (error) {
+            console.error("Error fetching game name:", error);
+            return "未知游戏名称";
+        }
     };
 
-    const extractCode = async (answer: string) => {
-        // 检查是否包含 <html> 开头和 </html> 结尾
-        const htmlBlockMatch = answer.match(/(?:<!DOCTYPE html>\s*)?<html[\s\S]*?>[\s\S]*?<\/html>/i);
+    const askRules = async (code) => {
+        try {
+            const response = await fetch('http://localhost:8000/api/v1/game/askrules', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question: code, // 代码内容
+                    user_token: token, // 用户 token
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch game rules");
+            }
+
+            const rules = await response.text(); // 接口直接返回规则说明书
+            return rules.trim(); // 去除多余的换行符或空格
+        } catch (error) {
+            console.error("Error fetching game rules:", error);
+            return "暂无游戏规则";
+        }
+    };
+
+    const extractCode = async (answer) => {
+        const htmlBlockMatch = answer.result.match(/(?:<!DOCTYPE html>\s*)?<html[\s\S]*?>[\s\S]*?<\/html>/i);
+        const gameuuid = generateUUID(); // 生成随机UUID
+        // console.log(gameuuid);
+
+        // 初始化返回对象
+        const extractedData = {
+            uuid: gameuuid,
+            name: answer.game_name || null, // 优先使用 answer 中的 game_name
+            rules: answer.game_rules || null, // 优先使用 answer 中的 game_rules
+            code: null, // 代码内容稍后填充
+        };
+
         if (htmlBlockMatch) {
             // 提取 HTML 内容
-            const extractedCode = htmlBlockMatch[0].trim();
-            // console.log(extractedCode);
-
-            // 调用 askname 并等待其返回结果
-            const nameResponse = await askname(extractedCode);
-            const uuid = generateUUID(); // 生成随机UUID
-
-            // 返回字典形式的结果
-            return {
-                uuid: uuid,
-                name: nameResponse, // 假设 API 返回的内容是直接可用的名称
-                code: extractedCode,
-            };
+            extractedData.code = htmlBlockMatch[0].trim();
         } else {
-            // 如果没有 <html> 包裹，返回原始内容作为 code，同时 name 为 null
-            return {
-                name: null,
-                code: answer.trim(),
-            };
+            // 如果没有 <html> 包裹，返回原始内容作为 code
+            extractedData.code = answer.result.trim();
         }
+
+        // 如果缺少 game_name，调用生成函数
+        if (!extractedData.name) {
+            console.log("生成名字");
+            extractedData.name = await askName(extractedData.code); // 假设 askname 使用代码生成游戏名称
+        }
+
+        // 如果缺少 game_rules，调用生成函数
+        if (!extractedData.rules) {
+            console.log("生成规则");
+            extractedData.rules = await askRules(extractedData.code); // 假设 askrules 使用代码生成游戏规则
+        }
+
+        // 返回最终的结果对象
+        return extractedData;
     };
 
     async function handleAsk(query: string) {
         setMessages((prev) => [...prev, { sender: "user", text: query }]);
         const answer = await sendMessage(query);
-
         // 检查是否包含代码块
-        const codeBlockMatch = answer.match(/<html[\s\S]*?>[\s\S]*?<\/html>/i);
+        // console.log(answer);
+        const codeBlockMatch = answer.result.match(/<html[\s\S]*?>[\s\S]*?<\/html>/i);
 
         if (codeBlockMatch) {
             // 如果包含代码块，提取并清理代码内容
-
             const cleanedAnswer = await extractCode(answer);
-            const uuid = generateUUID(); // 生成 UUID
+            // console.log(cleanedAnswer);
 
             // 保存到 game 字典中
-             setGame((prevGame) => ({
+            setGame((prevGame) => ({
                 ...prevGame,
-                [uuid]: {
+                [cleanedAnswer.uuid]: {
                     uuid: cleanedAnswer.uuid,
-                    name: cleanedAnswer.name, // 从 extractCode 中获取 name
+                    name: cleanedAnswer.name, // 从 extractCode 中获取 name 或补充后的 name
+                    rules: cleanedAnswer.rules, // 从 extractCode 中获取 rules 或补充后的 rules
                     code: cleanedAnswer.code, // 从 extractCode 中获取 code
                 },
             }));
@@ -162,13 +207,13 @@ const Game = () => {
             // 添加到聊天记录，标记为代码块
             setMessages((prev) => [
                 ...prev,
-                { sender: "bot", text: cleanedAnswer.code, uuid, isCode: true },
+                { sender: "bot", text: cleanedAnswer.code, uuid: cleanedAnswer.uuid, isCode: true }
             ]);
         } else {
             // 如果没有代码块，直接添加到聊天记录，标记为普通文本
             setMessages((prev) => [
                 ...prev,
-                { sender: "bot", text: answer.trim(), isCode: false },
+                { sender: "bot", text: answer.result.trim(), isCode: false }
             ]);
         }
         setLoading(false);
@@ -211,14 +256,13 @@ const Game = () => {
 
     const updateGameName = async (uuid, newName) => {
         try {
-            console.log(newName);
-            console.log(uuid);
             const response = await axios.put(`http://127.0.0.1:8000/api/v1/game/update/${uuid}`,
                 { new_name: newName },
                 { headers: { 'Content-Type': 'application/json' } }
             );
             message.success("游戏名字修改成功");
             setIsModalVisible(false); // 关闭弹出框
+            setChangeNameGame({});
             await fetchGames();
         } catch (error) {
             if (error.response) {
@@ -237,6 +281,7 @@ const Game = () => {
                 uuid: game.uuid, // 新生成的 UUID
                 code: game.code, // 从 game 中提取的 code
                 name: game.name, // 从 game 中提取的 name
+                rules: game.rules,
                 url: "",    // 空的 URL（可根据需求填充）
             };
             // console.log("Game entry to save:", gameEntry);
@@ -262,23 +307,25 @@ const Game = () => {
         }
     };
 
-    const changeNameHandleOk = (game) => {
+    const changeNameHandleOk = (changeNameGame) => {
         if (!newName.trim()) {
             message.error("名字不能为空！");
             return;
         }
-        updateGameName(game.uuid, newName.trim());
+        updateGameName(changeNameGame.uuid, newName.trim());
     };
 
     const changeNameHandleCancel = () => {
         setIsModalVisible(false); // 关闭弹出框
         setNewName(""); // 清空输入框
     };
+
     const showChangeNameModal = (game) => {
         setNewName(game.name); // 每次打开弹出框时，将输入框的值设置为当前名字
-        setGame(game);
+        setChangeNameGame(game);
         setIsModalVisible(true); // 显示弹出框
     };
+
     async function fetchGames() {
       try {
         const response = await fetch("http://127.0.0.1:8000/api/v1/game/get_all", {
@@ -388,6 +435,18 @@ const Game = () => {
                                                     <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
                                                         {game[msg.uuid]?.name || "新游戏"} {/* 动态显示名称 */}
                                                     </div>
+                                                    <Popover
+                                                        content={
+                                                            <div style={{ maxWidth: "300px", wordWrap: "break-word" }}>
+                                                                {game[msg.uuid]?.rules || "暂无规则"} {/* 动态显示规则 */}
+                                                            </div>
+                                                        }
+                                                        title="游戏规则"
+                                                    >
+                                                        <Button style={{border:"none"}}>
+                                                            <BookOutlined />规则
+                                                        </Button>
+                                                    </Popover>
                                                     {/* 右侧按钮区域 */}
                                                     <div
                                                         style={{
@@ -453,7 +512,7 @@ const Game = () => {
                                 ))}
                                 {loading && messages.length > 0 && messages[messages.length - 1].sender === "user" && (
                                     <div style={{textAlign: "left", padding: "10px"}}>
-                                        <Spin tip="思考中..."/>
+                                        <strong style={{color:"skyblue",marginRight:"6px"}}>游戏正在精心制作中，请耐心等待3分钟</strong><Spin tip="思考中..."/>
                                     </div>
                                 )}
                             </div>
@@ -561,8 +620,21 @@ const Game = () => {
                                         >
                                             {/* 左侧内容：显示名称 */}
                                             <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
-                                                {game.name || "新游戏"}
+                                                <Popover
+                                                    content={
+                                                        <div style={{ maxWidth: "300px", wordWrap: "break-word" }}>
+                                                            {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
+                                                        </div>
+                                                    }
+                                                    title="游戏规则"
+                                                >
+                                                    <Button style={{border:"none",fontSize:"medium"}}>
+                                                        <strong>{game.name || "新游戏"}</strong>
+                                                    </Button>
+                                                </Popover>
+
                                             </div>
+
 
                                             {/* 右侧按钮区域 */}
                                             <div
@@ -580,6 +652,8 @@ const Game = () => {
                                                 >
                                                     <CaretRightOutlined/>
                                                 </Button>
+
+
                                                 <Button
                                                     onClick={() => {
                                                         showChangeNameModal(game); // 显示弹出框
@@ -611,7 +685,7 @@ const Game = () => {
             <Modal
                 title="修改游戏名字"
                 visible={isModalVisible}
-                onOk={()=>changeNameHandleOk(game)} // 确定按钮逻辑
+                onOk={()=>changeNameHandleOk(changeNameGame)} // 确定按钮逻辑
                 onCancel={changeNameHandleCancel} // 取消按钮逻辑
                 okText="确认"
                 cancelText="取消"

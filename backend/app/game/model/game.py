@@ -14,3 +14,4 @@ class Game(Base):
     name = Column(String(255), nullable=True)
     url = Column(String(255), nullable=True)
     code = Column(Text, nullable=False)
+    rules = Column(Text, nullable=False)
