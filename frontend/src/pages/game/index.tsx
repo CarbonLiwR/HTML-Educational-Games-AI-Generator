@@ -5,6 +5,7 @@ import {EditOutlined, MailOutlined} from "@ant-design/icons";
 import {getToken} from "../../utils/auth.ts";
 import {CaretRightOutlined, VerticalAlignBottomOutlined,ClearOutlined,BookOutlined} from "@ant-design/icons";
 import axios from "axios";
+import pako from "pako";
 const {Header, Sider, Content, Footer} = Layout;
 const {Text} = Typography;
 
@@ -32,6 +33,13 @@ const Game = () => {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
     };
+
+    function decompressResult(compressedResult) {
+        const compressedData = atob(compressedResult); // Base64 解码
+        const uint8Array = new Uint8Array(compressedData.split("").map(c => c.charCodeAt(0)));
+        const decompressedData = new TextDecoder("utf-8").decode(pako.inflate(uint8Array)); // 使用 pako.js 解压
+        return decompressedData;
+    }
 
     const sendMessage = async (question: string) => {
         const trimmedMessage = question.trim();
@@ -73,12 +81,14 @@ const Game = () => {
                     } else if (data.type === "answer") {
                         // 拼接或组合返回的所有字段
                         const { game_name, game_rules, result } = data;
-
+                        // console.log("result",data.result);
+                        const decompressedResult = decompressResult(data.result);
+                        // console.log(decompressedResult);
                         // 构造完整的结果
                         fullAnswer = {
                             game_name: game_name || "",
                             game_rules: game_rules || "",
-                            result: result || ""
+                            result: decompressedResult
                         };
                     }
                 }

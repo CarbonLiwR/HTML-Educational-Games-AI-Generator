@@ -1,6 +1,8 @@
 import contextlib
 import json
 import re
+import gzip
+import base64
 import asyncio
 from fastapi import APIRouter, HTTPException,Body
 from openai import OpenAI
@@ -213,6 +215,7 @@ async def api_ask_chain(request: ChatRequest):
                                 2.尽可能将游戏运作细节展示到html，设计好html，css，JavaScript框架
                                 3.重点在保证能使用的前提下规划JavaScript交互逻辑的健壮性，规划css色彩的变化
                                 4.设计出可能要用到的JavaScript函数名
+                                5.指出需要注意的代码板块
                                 【规则】
                                 1.只输出游戏具体的框架规划
                                 2.不输出代码
@@ -232,7 +235,7 @@ async def api_ask_chain(request: ChatRequest):
                     ]
                 )
                 first_reply = response_1.choices[0].message.content
-                # print(first_reply)
+                # print(first_reply)z
                 #获取名字和游戏规则
                 pattern = r"游戏名称:\s*(.*?)\n\n游戏规则:\s*(.*?)\n\n"
                 match = re.search(pattern, first_reply, re.S)
@@ -277,14 +280,17 @@ async def api_ask_chain(request: ChatRequest):
                     ]
                 )
                 second_reply = response_2.choices[0].message.content
-                # print(second_reply)
+                reply = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
+                # print(reply)
+
+                compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
 
                 # 推送第二次调用的结果
                 await queue.put(json.dumps({
                     "type": "answer",
                     "game_name": game_name or '',
                     "game_rules": game_rules or '',
-                    "result": second_reply
+                    "result": compressed_reply
                 }) + "\n")
 
             except Exception as e:
