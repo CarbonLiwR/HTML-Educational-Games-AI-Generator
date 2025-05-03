@@ -204,29 +204,35 @@ async def api_ask_chain(request: ChatRequest):
                 response_1 = await asyncio.to_thread(
                     client.chat.completions.create,
                     model='gpt-4o',
+                    # model='gpt-4o',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                                【名称】
-                                课堂游戏html规划
-                                【操作指令】
-                                1.需要规划出开始游戏、结束游戏、重置游戏的布局
-                                2.尽可能将游戏运作细节展示到html，设计好html，css，JavaScript框架
-                                3.重点在保证能使用的前提下规划JavaScript交互逻辑的健壮性，规划css色彩的变化
-                                4.设计出可能要用到的JavaScript函数名
-                                5.指出需要注意的代码板块
-                                【规则】
-                                1.只输出游戏具体的框架规划
-                                2.不输出代码
-                                【输出格式要求】
-                                游戏名称:
-                                XXX
-                                游戏规则:
-                                XXX
-                                游戏代码框架规划:
-                                XXX: 
-                            """
+                                       【名称】
+                                       课堂游戏html规划
+                                       【操作指令】
+                                        1.需要穫暹瘤规划出开始游戏、结束游戏、重置游戏的布局
+                                        2.尽可能将游戏运作细节展示到html，设计好html，css，Javascript框架
+                                        3.重点在保证能使用的前提下规划Javascript交互逻辑的健壮性，规划HTML每个元素的css属性和样式等内容
+                                        4.设计出可能要用到的Javascript函数名
+                                        5.html展示的内容一定要与JavaScript交互逻辑相协调（例如：要实现两个相同单词消除的动作，html内容就要保证有两个相同单词的出现）
+                                        6.指出实现代码模块时需要注意的问题     
+                                       【规则】
+                                       1.只输出游戏具体的框架规划
+                                       2.不输出代码
+                                       3.不输出markdown格式
+                                       【输出格式要求】
+                                       游戏名称:
+                                       XXX
+                                       游戏规则:
+                                       XXX
+                                       游戏代码框架规划:
+                                       XXX 
+                                       需要注意的问题： 
+                                       XXX
+                                      
+                                   """
                         },
                         {
                             "role": "user",
@@ -235,8 +241,9 @@ async def api_ask_chain(request: ChatRequest):
                     ]
                 )
                 first_reply = response_1.choices[0].message.content
-                # print(first_reply)z
                 #获取名字和游戏规则
+                # print(first_reply)
+                first_reply = re.sub(r'#', '', first_reply)
                 pattern = r"游戏名称:\s*(.*?)\n\n游戏规则:\s*(.*?)\n\n"
                 match = re.search(pattern, first_reply, re.S)
 
@@ -251,8 +258,8 @@ async def api_ask_chain(request: ChatRequest):
 
                 response_2 = await asyncio.to_thread(
                     client.chat.completions.create,
-                    # model='gpt-4o-mini',
-                    model='deepseek-reasoner',
+                    # model='deepseek-reasoner',
+                    model='o1',
                     messages=[
                         {
                             "role": "system",
@@ -261,14 +268,17 @@ async def api_ask_chain(request: ChatRequest):
                                 HTML游戏生成助手
                                 【操作指令】
                                 1.根据已经有规则和游戏内容素材生成html、css、JavaScript
-                                2.使用HTML语言编写游戏规则和使用流程的展示页面，包括页面头部、主体内容以及交互操作的布局。
+                                2.使用HTML语言编写游戏规则和使用流程的展示页面，包括页面头部、主体内容以及交互操作的布局
                                 3.重点:必须包含用户提供的所有上课内容
+                                4.函数实现过程要解决规划中提到的重点问题
+                               
                                 【规则】
-                                1.HTML代码格式必须符合规范以确保兼容性和可读性，同时需避免使用未支持的HTML标签。
-                                2.必须针对教育场景设计页面样式和交互功能，避免与课堂活动无关的内容和操作。
-                                3.注意:所有代码都放在一个html，结果返回完整的htmI代码
-                                4.为了让游戏具有完整性生成的JavaScript逻辑一定要清晰
+                                1.HTML代码格式必须符合规范以确保兼容性和可读性，同时需避免使用未支持的HTML标签
+                                2.注意:所有代码都放在一个html，结果返回完整的htmI代码
+                            
                                 【格式要求】
+                                游戏规则：
+                                xxx
                                 游戏代码:
                                 xxx 
                             """
@@ -280,17 +290,101 @@ async def api_ask_chain(request: ChatRequest):
                     ]
                 )
                 second_reply = response_2.choices[0].message.content
+                # print(second_reply)
                 reply = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
-                # print(reply)
-
                 compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
-
-                # 推送第二次调用的结果
                 await queue.put(json.dumps({
                     "type": "answer",
-                    "game_name": game_name or '',
-                    "game_rules": game_rules or '',
+                    "game_name": game_name,
+                    "game_rules": game_rules,
                     "result": compressed_reply
+                }) + "\n")
+
+            except Exception as e:
+                # 推送错误信息
+                await queue.put(json.dumps({"type": "error", "text": str(e)}) + "\n")
+
+        queue = asyncio.Queue()
+        heartbeat_task = asyncio.create_task(heartbeat_sender(queue))
+        main_task = asyncio.create_task(main_logic(queue))
+
+        try:
+            while True:
+                item = await queue.get()
+                yield item
+                if item.startswith('{"type": "answer"'):
+                    break
+        finally:
+            # 取消心跳任务
+            heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await heartbeat_task
+
+    return StreamingResponse(event_stream(), media_type='application/x-ndjson')
+
+class OptimizeGameRequest(BaseModel):
+    question: str
+    code: str
+    user_token: str
+
+@router.post('/game/optimize')
+async def api_optimize(request: OptimizeGameRequest):
+    question = request.question
+    code = request.code
+    user_token = request.user_token
+    user = await get_user_llm_info(user_token=user_token)
+
+    client = OpenAI(
+        # api_key=user.get('api_key'),
+        api_key=good_api_key,
+        base_url=user.get('api_url')
+    )
+
+    async def event_stream():
+        # 心跳
+        async def heartbeat_sender(queue):
+            try:
+                while True:
+                    await queue.put(json.dumps({"type": "heartbeat"}) + "\n")
+                    await asyncio.sleep(50)  # 心跳间隔时间
+            except asyncio.CancelledError:
+                pass
+
+        # 主任务
+        async def main_logic(queue):
+            try:
+                # 第一次调用 API
+                first_prompt = f"""【需要优化的代码】：{code} 【用户的需求】:{question}"""
+                # print(first_prompt)
+                response = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    # model='gpt-4o-mini',
+                    model='gpt-4o',
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": """
+                                根据下面的代码内容和用户需求，优化代码内容：
+                            """
+                        },
+                        {
+                            "role": "user",
+                            "content": first_prompt
+                        }
+                    ]
+                )
+                reply = response.choices[0].message.content
+                # print(reply)
+                game_name = await api_ask_getname(request=ChatRequest(question=reply, user_token=user_token))
+                # print(game_name)
+                game_rules = await api_ask_getaskrules(request=ChatRequest(question=reply, user_token=user_token))
+                # print(game_rules)
+
+                await queue.put(json.dumps({
+                    "type": "answer",
+                    "result": reply,
+                    "game_name": game_name,
+                    "game_rules": game_rules,
                 }) + "\n")
 
             except Exception as e:
@@ -329,7 +423,7 @@ async def api_ask_getname(request: ChatRequest):
         client.chat.completions.create,
         model=user.get('model_name'),
         messages=[
-            {"role": "user", "content": f"请给下面的代码游戏内容取一个名字，与教育相关，要求字数不超过10个字，直接生成名字不需要解释，生成名字放在最后一排且前面用双换行隔开，下面是代码内容:+{question}"}
+            {"role": "user", "content": f"请给下面的代码游戏内容取一个名字，与教育相关，要求字数不超过10个字，直接生成名字不需要解释，不要md格式，纯文字输出，下面是代码内容:+{question}"}
         ]
     )
     assistant_reply = response.choices[0].message.content
@@ -354,16 +448,15 @@ async def api_ask_getaskrules(request: ChatRequest):
                 "role": "user",
                 "content": f"""
                 请根据下面的代码内容生成一份游戏说明书，说明书内容需包含以下部分：
-                1. 游戏名称（从代码内容中提炼，字数不超过10个字）。
-                2. 游戏规则（简要说明游戏的玩法和规则）。
-                3. 游戏目标（说明玩家需要完成的目标）。
-                4. 游戏操作说明（详细说明游戏的操作方式，如按键、交互等）。
-                5. 注意事项（列出游戏中的注意事项或特殊规则）。
+                1.游戏规则（简要说明游戏的玩法和规则）。
+                2.游戏目标（说明玩家需要完成的目标）。
+                3.游戏操作说明（详细说明游戏的操作方式，如按键、交互等）。
 
                 【格式要求】：
-                1. 使用清晰的标题结构（如“游戏名称：XXX”、“游戏规则：XXX”）。
+                1. 使用清晰的标题结构。
                 2. 说明书内容需通俗易懂，适合教育场景。
                 3. 最后生成完整的说明书内容，直接输出，不需要解释。
+                4. 说明书内容从简，不要使用任何markdown格式，纯文字返回,字数控制在五十字以内。
 
                 【代码内容】：
                 {question}

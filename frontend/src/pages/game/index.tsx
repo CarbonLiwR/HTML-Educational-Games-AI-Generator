@@ -1,11 +1,12 @@
 // src/components/ChatLayout.jsx
 import React, {useEffect, useRef, useState} from "react";
-import {Layout, Button, Input, Typography, Splitter, Spin, message, Popconfirm, Modal, Popover} from "antd";
+import {Layout, Button, Input, Typography, Splitter, Spin, message, Popconfirm, Modal, Popover, Tooltip} from "antd";
 import {EditOutlined, MailOutlined} from "@ant-design/icons";
 import {getToken} from "../../utils/auth.ts";
-import {CaretRightOutlined, VerticalAlignBottomOutlined,ClearOutlined,BookOutlined} from "@ant-design/icons";
+import {CaretRightOutlined, VerticalAlignBottomOutlined,ClearOutlined,CodeOutlined,BookOutlined,AppstoreAddOutlined} from "@ant-design/icons";
 import axios from "axios";
 import pako from "pako";
+import OptimizeGameModal from "../../components/modals/optimizeGameModal";
 const {Header, Sider, Content, Footer} = Layout;
 const {Text} = Typography;
 
@@ -24,6 +25,8 @@ const Game = () => {
     const [newName, setNewName] = useState("");
     const [columns, setColumns] = useState(1);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isOptimizeMoadalVisible,setIsOptimizeMoadalVisible] = useState(false);
+    const [optimizeGame, setOptimizeGame] = useState({}); // 存储回答内容的键值对字典
     const siderRef = useRef(null);
     const cardWidth = 250;
     const token = getToken();
@@ -102,7 +105,6 @@ const Game = () => {
             setLoading(false);
         }
     };
-
 
     const askName = async (code) => {
         try {
@@ -196,9 +198,9 @@ const Game = () => {
         const answer = await sendMessage(query);
         // 检查是否包含代码块
         // console.log(answer);
-        const codeBlockMatch = answer.result.match(/<html[\s\S]*?>[\s\S]*?<\/html>/i);
+        // const codeBlockMatch = answer.result.match(/<html[\s\S]*?>[\s\S]*?<\/html>/i);
 
-        if (codeBlockMatch) {
+        // if (codeBlockMatch) {
             // 如果包含代码块，提取并清理代码内容
             const cleanedAnswer = await extractCode(answer);
             // console.log(cleanedAnswer);
@@ -219,13 +221,13 @@ const Game = () => {
                 ...prev,
                 { sender: "bot", text: cleanedAnswer.code, uuid: cleanedAnswer.uuid, isCode: true }
             ]);
-        } else {
-            // 如果没有代码块，直接添加到聊天记录，标记为普通文本
-            setMessages((prev) => [
-                ...prev,
-                { sender: "bot", text: answer.result.trim(), isCode: false }
-            ]);
-        }
+        // } else {
+        //     // 如果没有代码块，直接添加到聊天记录，标记为普通文本
+        //     setMessages((prev) => [
+        //         ...prev,
+        //         { sender: "bot", text: answer.result.trim(), isCode: false }
+        //     ]);
+        // }
         setLoading(false);
     }
 
@@ -316,6 +318,12 @@ const Game = () => {
             alert('保存失败，请重试');
         }
     };
+
+    const openOptimizeModal = (game)=>{
+        setOptimizeGame(game);
+        // console.log(game.name);
+        setIsOptimizeMoadalVisible(true);
+    }
 
     const changeNameHandleOk = (changeNameGame) => {
         if (!newName.trim()) {
@@ -442,8 +450,8 @@ const Game = () => {
                                                     }}
                                                 >
                                                     {/* 左侧内容：显示名称 */}
-                                                    <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
-                                                        {game[msg.uuid]?.name || "新游戏"} {/* 动态显示名称 */}
+                                                    <div style={{fontWeight: "bold",margin:"0 10px", fontSize: "16px", color: "#333"}}>
+                                                        <CodeOutlined />   {game[msg.uuid]?.name || "新游戏"} {/* 动态显示名称 */}
                                                     </div>
                                                     <Popover
                                                         content={
@@ -461,7 +469,7 @@ const Game = () => {
                                                     <div
                                                         style={{
                                                             display: "flex",
-                                                            flexDirection: "column",
+                                                            // flexDirection: "column",
                                                             alignItems: "center",
                                                             gap: "8px",
                                                         }}
@@ -476,10 +484,18 @@ const Game = () => {
                                                         </Button>
 
                                                         <Button
+                                                            onClick={() => openOptimizeModal(game[msg.uuid])}
+                                                        >
+                                                            <AppstoreAddOutlined />优化
+                                                        </Button>
+
+                                                        <Button
                                                             onClick={() => saveCode(game[msg.uuid])}
                                                         >
                                                             <VerticalAlignBottomOutlined/>保存
                                                         </Button>
+
+
                                                     </div>
                                                 </div>
                                             </div>
@@ -522,7 +538,7 @@ const Game = () => {
                                 ))}
                                 {loading && messages.length > 0 && messages[messages.length - 1].sender === "user" && (
                                     <div style={{textAlign: "left", padding: "10px"}}>
-                                        <strong style={{color:"skyblue",marginRight:"6px"}}>游戏正在精心制作中，请耐心等待3分钟</strong><Spin tip="思考中..."/>
+                                        <strong style={{color:"skyblue",marginRight:"6px"}}>游戏正在精心制作中，请耐心等待5分钟</strong><Spin tip="思考中..."/>
                                     </div>
                                 )}
                             </div>
@@ -569,133 +585,186 @@ const Game = () => {
                 </div>
                     </Layout>
                 </Splitter.Panel>
-                <Splitter.Panel defaultSize={250} min={250}>
+                <Splitter.Panel defaultSize={670} min={670}>
                     <div
                         ref={siderRef} // 绑定 ref 用于监听宽度
                         style={{
                             height: "100%",
-                            backgroundColor: "#FFFFFF",
+                            backgroundColor:"white",
                             borderLeft: "1px solid #E8E8E8",
                             display: "flex",
                             flexDirection: "column",
                         }}
                     >
-                        {gamelist.length === 0 ? (
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    color: "#999",
-                                }}
-                            >
-                                <MailOutlined style={{fontSize: 48, marginTop: 16, marginBottom: 16, color: "#999"}}/>
-                                <Text style={{color: "#999"}}>暂无数据</Text>
+                        <div
+                            style={{
+                                padding: "16px",
+                                backgroundColor:"white",
+                                borderBottom: "1px solid #E8E8E8",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                            }}
+                        >
+                            <div style={{fontWeight: "bold", fontSize: "18px", color: "#333",}}>
+                                游戏列表
                             </div>
-                        ) : (
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "grid",
-                                    gridTemplateColumns: `repeat(${columns}, 1fr)`, // 动态列数
-                                    gridGap: "16px", // 间距
-                                    padding: "16px",
-                                    overflowY: "auto", // 滚动
-                                }}
-                            >
-                                {gamelist.map((game, index) => (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            border: "1px solid #e8e8e8",
-                                            borderRadius: "8px",
-                                            padding: "16px",
-                                            backgroundColor: "#ffffff",
-                                            height: "150px", // 固定高度
-                                            display: "flex", // 让内容居中
-                                            flexDirection: "column", // 垂直布局
-                                            justifyContent: "space-between", // 内容上下分布
-                                        }}
-                                    >
+                            {/*<div>*/}
+                            {/*    <Button*/}
+                            {/*        style={{border:"1px solid #e8e8e8"}}*/}
+                            {/*        type="text"*/}
+                            {/*        onClick={() => {*/}
+                            {/*            // showAddGameModal(); // 打开添加游戏的弹窗*/}
+                            {/*        }}*/}
+                            {/*    >*/}
+                            {/*        +添加游戏*/}
+                            {/*    </Button>*/}
+                            {/*</div>*/}
+                        </div>
+                        <div
+                            style={{
+                                flex: 1, // 填充剩余的高度
+                                display: "flex",
+                                flexDirection: "column",
+                                backgroundColor:"white",
+                            }}
+                        >
+                            {gamelist.length === 0 ? (
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "#999",
+                                    }}
+                                >
+                                    <MailOutlined
+                                        style={{fontSize: 48, marginTop: 16, marginBottom: 16, color: "#999"}}/>
+                                    <Text style={{color: "#999"}}>暂无数据</Text>
+                                </div>
+                            ) : (
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        display: "grid",
+                                        gridTemplateColumns: `repeat(${columns}, 1fr)`, // 动态列数
+                                        gridGap: "16px", // 间距
+                                        padding: "16px",
+                                        overflowY: "auto", // 滚动
+                                    }}
+                                >
+                                    {gamelist.map((game, index) => (
                                         <div
+                                            key={index}
                                             style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
+                                                border: "1px solid #e8e8e8",
                                                 borderRadius: "8px",
+                                                padding: "16px",
                                                 backgroundColor: "#ffffff",
+                                                height: "100px", // 固定高度
+                                                display: "flex", // 让内容居中
+                                                flexDirection: "column", // 垂直布局
+                                                justifyContent: "space-between", // 内容上下分布
                                             }}
                                         >
-                                            {/* 左侧内容：显示名称 */}
-                                            <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
-                                                <Popover
-                                                    content={
-                                                        <div style={{ maxWidth: "300px", wordWrap: "break-word" }}>
-                                                            {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
-                                                        </div>
-                                                    }
-                                                    title="游戏规则"
-                                                >
-                                                    <Button style={{border:"none",fontSize:"medium"}}>
-                                                        <strong>{game.name || "新游戏"}</strong>
-                                                    </Button>
-                                                </Popover>
-
-                                            </div>
-
-
-                                            {/* 右侧按钮区域 */}
                                             <div
                                                 style={{
                                                     display: "flex",
-                                                    flexDirection: "column",
+                                                    justifyContent: "space-between",
                                                     alignItems: "center",
-                                                    gap: "8px",
+                                                    borderRadius: "8px",
+                                                    backgroundColor: "#ffffff",
                                                 }}
                                             >
-                                                <Button
-                                                    onClick={() => {
-                                                        runHtmlCode(game.code);
+                                                {/* 左侧内容：显示名称 */}
+                                                <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
+                                                    <Popover
+                                                        content={
+                                                            <div style={{maxWidth: "300px", wordWrap: "break-word"}}>
+                                                                {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
+                                                            </div>
+                                                        }
+                                                        title="游戏规则"
+                                                    >
+                                                        <Button style={{border: "none", fontSize: "medium"}}>
+                                                            <strong>{game.name || "新游戏"}</strong>
+                                                        </Button>
+                                                    </Popover>
+
+                                                </div>
+
+
+                                                {/* 右侧按钮区域 */}
+                                                <div
+                                                    style={{
+                                                        display: "grid",
+                                                        gridTemplateRows: "repeat(2, 1fr)", // 两行
+                                                        gridTemplateColumns: "repeat(2, 1fr)", // 两列
+                                                        gap: "8px", // 按钮之间的间距
+                                                        justifyItems: "center", // 水平居中
+                                                        alignItems: "center", // 垂直居中
                                                     }}
                                                 >
-                                                    <CaretRightOutlined/>
-                                                </Button>
+                                                    <Tooltip title="运行">
+                                                        <Button
+                                                            onClick={() => {
+                                                                runHtmlCode(game.code);
+                                                            }}
+                                                        >
+                                                            <CaretRightOutlined/>
+                                                        </Button>
+                                                    </Tooltip>
 
+                                                    <Tooltip title="优化">
+                                                        <Button
+                                                            onClick={() => {
+                                                                openOptimizeModal(game)
+                                                            }}
+                                                        >
+                                                            <AppstoreAddOutlined/>
+                                                        </Button>
+                                                    </Tooltip>
 
-                                                <Button
-                                                    onClick={() => {
-                                                        showChangeNameModal(game); // 显示弹出框
-                                                    }}
-                                                >
-                                                    <EditOutlined />
-                                                </Button>
+                                                    <Tooltip title="修改名字">
+                                                        <Button
+                                                            onClick={() => {
+                                                                showChangeNameModal(game); // 显示弹出框
+                                                            }}
+                                                        >
+                                                            <EditOutlined/>
+                                                        </Button>
+                                                    </Tooltip>
 
-                                                <Popconfirm
-                                                    title={`确定要删除游戏 "${game.name}" 吗?`}
-                                                    onConfirm={() => deleteGame(game.uuid)} // 点击确认按钮时调用 deleteGame
-                                                    okText="Yes"
-                                                    cancelText="No"
-                                                >
-                                                    <Button danger>
-                                                        <ClearOutlined />
-                                                    </Button>
-                                                </Popconfirm>
+                                                    <Popconfirm
+                                                        title={`确定要删除游戏 "${game.name}" 吗?`}
+                                                        onConfirm={() => deleteGame(game.uuid)} // 点击确认按钮时调用 deleteGame
+                                                        okText="Yes"
+                                                        cancelText="No"
+                                                    >
+                                                        <Tooltip title="删除">
+                                                            <Button danger>
+                                                                <ClearOutlined/>
+                                                            </Button>
+                                                        </Tooltip>
+                                                    </Popconfirm>
+                                                </div>
 
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </Splitter.Panel>
             </Splitter>
+
             <Modal
                 title="修改游戏名字"
                 visible={isModalVisible}
-                onOk={()=>changeNameHandleOk(changeNameGame)} // 确定按钮逻辑
+                onOk={() => changeNameHandleOk(changeNameGame)} // 确定按钮逻辑
                 onCancel={changeNameHandleCancel} // 取消按钮逻辑
                 okText="确认"
                 cancelText="取消"
@@ -706,6 +775,14 @@ const Game = () => {
                     onChange={(e) => setNewName(e.target.value)} // 更新输入框内容
                 />
             </Modal>
+
+            <OptimizeGameModal
+                visible={isOptimizeMoadalVisible}
+                onClose={() => setIsOptimizeMoadalVisible(false)}
+                saveCode={saveCode}
+                gameToOptimize={optimizeGame}
+            />
+
         </Layout>
     );
 };
