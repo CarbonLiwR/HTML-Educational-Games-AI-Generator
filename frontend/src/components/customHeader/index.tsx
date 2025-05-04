@@ -25,11 +25,13 @@ const CustomHeader = () => {
     return (
         <Header style={{
             background: '#fff',
-            marginLeft: "5px",
+            color:"#444",
+            // marginLeft: "5px",
             padding: '2px 20px',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            backgroundColor:"rgb(180,225,240)"
         }}>
 
             {/* 左侧：Logo 和系统名称 */}

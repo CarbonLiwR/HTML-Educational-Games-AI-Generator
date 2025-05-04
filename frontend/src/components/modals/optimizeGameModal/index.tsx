@@ -1,5 +1,5 @@
 import React, {useState, useRef, useEffect} from "react";
-import {Modal, Input, Button, Spin, Popover, message} from "antd";
+import {Modal, Input, Button, Spin, Popover, message, Radio} from "antd";
 import {CaretRightOutlined, VerticalAlignBottomOutlined, BookOutlined, CodeOutlined} from "@ant-design/icons";
 import {getToken} from "../../../utils/auth.ts";
 import pako from "pako";
@@ -7,7 +7,7 @@ import pako from "pako";
 const generateUUID = () => {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
 };
-const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
+const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressResult}) => {
     const [userMessage, setUserMessage] = useState("");
     const [gameOptimize, setGameOptimize] = useState({}); // 当前游戏内容
     const [game, setGame] = useState({});//游戏记录
@@ -99,17 +99,18 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
                         if (data.type === "heartbeat") {
                             console.log("❤️ 心跳");
                         } else if (data.type === "answer") {
-                            console.log(data);
+                            // console.log(data);
                             const uuid = generateUUID();
+                            const decompressedResult = decompressResult(data.result);
                             const extractedData = {
                                 uuid: uuid,
                                 name: data.game_name,
                                 rules: data.game_rules,
-                                code: data.result,
+                                code: decompressedResult,
                             };
-                            // console.log("清理前内容"+JSON.stringify(extractedData.rules));
+                            // console.log("清理前代码"+JSON.stringify(extractedData.code));
                             const cleanedData = await cleanExtractedData(extractedData);
-                            // console.log("清理后内容"+JSON.stringify(cleanedData.rules));
+                            // console.log("清理后内容"+JSON.stringify(cleanedData.code));
                             optimizedResult = cleanedData;
                         }
                     } catch (error) {
@@ -153,6 +154,7 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
         // console.log("当前游戏内容:", gameOptimize);
         // return
         // 调用优化函数
+        console.log(JSON.stringify(gameOptimize));
         const optimizedGame = await optimizeGame(gameOptimize, message); // 调用传入的优化函数，返回最新的 game
 
         setLoading(false); // 取消加载状态
@@ -160,6 +162,7 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
         if (optimizedGame) {
             // 更新 gameToOptimize 和添加优化结果到聊天记录
             setGame(optimizedGame);
+            setGameOptimize(optimizedGame);
             setMessages((prevMessages) => [
                 ...prevMessages,
                 {sender: "bot", isCode: true, uuid: optimizedGame.uuid, game: optimizedGame}, // 优化结果
@@ -195,6 +198,28 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
     }, [messages]);
+
+    useEffect(() => {
+        if (gameToOptimize) {
+            setGameOptimize(gameToOptimize); // 初始化时设置当前优化的游戏
+            const defaultMessage = {
+                sender: "bot",
+                isCode: true,
+                uuid: gameToOptimize.uuid,
+                game: gameToOptimize,
+            };
+            setMessages([defaultMessage]);
+            setGame((prevGame) => ({
+                ...prevGame,
+                [gameToOptimize.uuid]: {
+                    uuid: gameToOptimize.uuid,
+                    name: gameToOptimize.name || "",
+                    rules: gameToOptimize.rules || "",
+                    code: gameToOptimize.code,
+                },
+            }));
+        }
+    }, [gameToOptimize]);
 
 
     return (
@@ -252,9 +277,15 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
                                             backgroundColor: "#ffffff",
                                         }}
                                     >
-                                        {/* 左侧内容：显示名称 */}
-                                        <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
-                                            <CodeOutlined/> {msg.game?.name || "新游戏"} {/* 动态显示名称 */}
+                                        {/* 左侧内容：显示单选框和游戏名称 */}
+                                        <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                                            <Radio
+                                                checked={gameOptimize.uuid === msg.game?.uuid} // 判断当前游戏是否为选中的游戏
+                                                onChange={() => setGameOptimize(msg.game)} // 选中后更新 optimizedGame
+                                            />
+                                            <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
+                                                <CodeOutlined/> {msg.game?.name || "新游戏"} {/* 动态显示名称 */}
+                                            </div>
                                         </div>
                                         <Popover
                                             content={
@@ -272,7 +303,6 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
                                         <div
                                             style={{
                                                 display: "flex",
-                                                // flexDirection: "column",
                                                 alignItems: "center",
                                                 gap: "8px",
                                             }}
@@ -340,6 +370,7 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize}) => {
                     )}
                 </div>
 
+                <span style={{color:"lightblue"}}>//您可以选择需要优化的游戏</span>
                 {/* 输入框与发送按钮 */}
                 <div
                     style={{

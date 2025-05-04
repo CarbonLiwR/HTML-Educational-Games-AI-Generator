@@ -86,18 +86,19 @@ const LayoutContainer = () => {
 
   <Layout>
     <CustomHeader />
-    <Content style={{ margin: '16px 10px 16px 5px', height: 'calc(100vh - 64px - 64px)', overflowY: 'auto' }}>
+    <Content style={{ height: 'calc(100vh - 64px - 64px)',backgroundColor:"rgb(180,225,240)"  ,overflowY: 'auto' }}>
       {/*<Breadcrumb style={{ margin: '5px 0' }}>*/}
       {/*  <Breadcrumb.Item>*/}
       {/*    <Link to="/">主页</Link>*/}
+
       {/*  </Breadcrumb.Item>*/}
       {/*  {breadcrumbItems}*/}
       {/*</Breadcrumb>*/}
-      <div style={{ padding: 12, background: '#fff' }}>
+      <div style={{ padding: 12, backgroundColor:"rgb(180,225,240)" }}>
         <Outlet />
       </div>
     </Content>
-    <Footer style={{ textAlign: 'center', padding: '5px' }}>
+    <Footer style={{ textAlign: 'center', padding: '5px',backgroundColor:"rgb(180,225,240)" }}>
       User Management System ©2024 Created by jxselab
     </Footer>
   </Layout>

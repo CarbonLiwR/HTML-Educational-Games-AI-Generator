@@ -242,7 +242,7 @@ async def api_ask_chain(request: ChatRequest):
                 )
                 first_reply = response_1.choices[0].message.content
                 #获取名字和游戏规则
-                # print(first_reply)
+                print(first_reply)
                 first_reply = re.sub(r'#', '', first_reply)
                 pattern = r"游戏名称:\s*(.*?)\n\n游戏规则:\s*(.*?)\n\n"
                 match = re.search(pattern, first_reply, re.S)
@@ -359,12 +359,14 @@ async def api_optimize(request: OptimizeGameRequest):
                 response = await asyncio.to_thread(
                     client.chat.completions.create,
                     # model='gpt-4o-mini',
-                    model='gpt-4o',
+                    model='o1',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                                根据下面的代码内容和用户需求，优化代码内容：
+                                在保持整体代码不变的情况下，根据下面的代码内容和用户需求优化代码，优化后返回一个HTML：
+                                
+                                【完整游戏代码】：
                             """
                         },
                         {
@@ -374,15 +376,17 @@ async def api_optimize(request: OptimizeGameRequest):
                     ]
                 )
                 reply = response.choices[0].message.content
-                # print(reply)
+                print(reply)
                 game_name = await api_ask_getname(request=ChatRequest(question=reply, user_token=user_token))
                 # print(game_name)
                 game_rules = await api_ask_getaskrules(request=ChatRequest(question=reply, user_token=user_token))
                 # print(game_rules)
+                compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
+                # print(compressed_reply)
 
                 await queue.put(json.dumps({
                     "type": "answer",
-                    "result": reply,
+                    "result": compressed_reply,
                     "game_name": game_name,
                     "game_rules": game_rules,
                 }) + "\n")

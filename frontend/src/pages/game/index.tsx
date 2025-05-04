@@ -1,12 +1,21 @@
 // src/components/ChatLayout.jsx
 import React, {useEffect, useRef, useState} from "react";
 import {Layout, Button, Input, Typography, Splitter, Spin, message, Popconfirm, Modal, Popover, Tooltip} from "antd";
-import {EditOutlined, MailOutlined} from "@ant-design/icons";
+import {EditOutlined, MailOutlined, ArrowDownOutlined} from "@ant-design/icons";
 import {getToken} from "../../utils/auth.ts";
-import {CaretRightOutlined, VerticalAlignBottomOutlined,ClearOutlined,CodeOutlined,BookOutlined,AppstoreAddOutlined} from "@ant-design/icons";
+import {
+    CaretRightOutlined,
+    VerticalAlignBottomOutlined,
+    ClearOutlined,
+    CodeOutlined,
+    BookOutlined,
+    AppstoreAddOutlined
+} from "@ant-design/icons";
 import axios from "axios";
 import pako from "pako";
 import OptimizeGameModal from "../../components/modals/optimizeGameModal";
+import AddGameModal from "../../components/modals/addGameModal";
+
 const {Header, Sider, Content, Footer} = Layout;
 const {Text} = Typography;
 
@@ -14,19 +23,29 @@ const generateUUID = () => {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
 };
 
+const macaronColors = [
+    "#FFB3BA", // 柔和粉红
+    "#FFDFBA", // 柔和橙色
+    "#FFFFBA", // 柔和黄色
+    "#BAFFC9", // 柔和绿色
+    "#BAE1FF", // 柔和蓝色
+    "#E2BAFF", // 柔和紫色
+];
+
 const Game = () => {
     const [messages, setMessages] = useState([]); // 聊天记录
     const [userMessage, setUserMessage] = useState(""); // 用户输入的消息
     const [loading, setLoading] = useState(false); // AI加载状态
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const [game, setGame] = useState({}); // 存储回答内容的键值对字典
-    const [gamelist,setGamelist]=useState([]);
+    const [gamelist, setGamelist] = useState([]);
     const [changeNameGame, setChangeNameGame] = useState({}); // 存储回答内容的键值对字典
     const [newName, setNewName] = useState("");
     const [columns, setColumns] = useState(1);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [isOptimizeMoadalVisible,setIsOptimizeMoadalVisible] = useState(false);
+    const [isOptimizeMoadalVisible, setIsOptimizeMoadalVisible] = useState(false);
     const [optimizeGame, setOptimizeGame] = useState({}); // 存储回答内容的键值对字典
+    const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const siderRef = useRef(null);
     const cardWidth = 250;
     const token = getToken();
@@ -73,7 +92,7 @@ const Game = () => {
             let fullAnswer = "";
 
             while (true) {
-                const { value, done } = await reader.read();
+                const {value, done} = await reader.read();
                 if (done) break;
 
                 const lines = decoder.decode(value).split("\n").filter(Boolean);
@@ -83,7 +102,7 @@ const Game = () => {
                         console.log("❤️ 心跳");
                     } else if (data.type === "answer") {
                         // 拼接或组合返回的所有字段
-                        const { game_name, game_rules, result } = data;
+                        const {game_name, game_rules, result} = data;
                         // console.log("result",data.result);
                         const decompressedResult = decompressResult(data.result);
                         // console.log(decompressedResult);
@@ -194,33 +213,33 @@ const Game = () => {
     };
 
     async function handleAsk(query: string) {
-        setMessages((prev) => [...prev, { sender: "user", text: query }]);
+        setMessages((prev) => [...prev, {sender: "user", text: query}]);
         const answer = await sendMessage(query);
         // 检查是否包含代码块
         // console.log(answer);
         // const codeBlockMatch = answer.result.match(/<html[\s\S]*?>[\s\S]*?<\/html>/i);
 
         // if (codeBlockMatch) {
-            // 如果包含代码块，提取并清理代码内容
-            const cleanedAnswer = await extractCode(answer);
-            // console.log(cleanedAnswer);
+        // 如果包含代码块，提取并清理代码内容
+        const cleanedAnswer = await extractCode(answer);
+        // console.log(cleanedAnswer);
 
-            // 保存到 game 字典中
-            setGame((prevGame) => ({
-                ...prevGame,
-                [cleanedAnswer.uuid]: {
-                    uuid: cleanedAnswer.uuid,
-                    name: cleanedAnswer.name, // 从 extractCode 中获取 name 或补充后的 name
-                    rules: cleanedAnswer.rules, // 从 extractCode 中获取 rules 或补充后的 rules
-                    code: cleanedAnswer.code, // 从 extractCode 中获取 code
-                },
-            }));
+        // 保存到 game 字典中
+        setGame((prevGame) => ({
+            ...prevGame,
+            [cleanedAnswer.uuid]: {
+                uuid: cleanedAnswer.uuid,
+                name: cleanedAnswer.name, // 从 extractCode 中获取 name 或补充后的 name
+                rules: cleanedAnswer.rules, // 从 extractCode 中获取 rules 或补充后的 rules
+                code: cleanedAnswer.code, // 从 extractCode 中获取 code
+            },
+        }));
 
-            // 添加到聊天记录，标记为代码块
-            setMessages((prev) => [
-                ...prev,
-                { sender: "bot", text: cleanedAnswer.code, uuid: cleanedAnswer.uuid, isCode: true }
-            ]);
+        // 添加到聊天记录，标记为代码块
+        setMessages((prev) => [
+            ...prev,
+            {sender: "bot", text: cleanedAnswer.code, uuid: cleanedAnswer.uuid, isCode: true}
+        ]);
         // } else {
         //     // 如果没有代码块，直接添加到聊天记录，标记为普通文本
         //     setMessages((prev) => [
@@ -232,18 +251,18 @@ const Game = () => {
     }
 
     const runHtmlCode = (code) => {
-    // 打开新窗口
+        // 打开新窗口
         const newWindow = window.open('', '_blank', 'width=1000,height=800');
 
         if (newWindow) {
-          // 将HTML代码写入新窗口
-          newWindow.document.open();
-          newWindow.document.write(code);
-          newWindow.document.close();
+            // 将HTML代码写入新窗口
+            newWindow.document.open();
+            newWindow.document.write(code);
+            newWindow.document.close();
         } else {
-          alert('弹出窗口被阻止，请允许弹出窗口后重试');
+            alert('弹出窗口被阻止，请允许弹出窗口后重试');
         }
-      };
+    };
 
     const deleteGame = async (id) => {
         try {
@@ -269,8 +288,8 @@ const Game = () => {
     const updateGameName = async (uuid, newName) => {
         try {
             const response = await axios.put(`http://127.0.0.1:8000/api/v1/game/update/${uuid}`,
-                { new_name: newName },
-                { headers: { 'Content-Type': 'application/json' } }
+                {new_name: newName},
+                {headers: {'Content-Type': 'application/json'}}
             );
             message.success("游戏名字修改成功");
             setIsModalVisible(false); // 关闭弹出框
@@ -308,7 +327,7 @@ const Game = () => {
 
             if (!response.ok) {
                 message.error('游戏保存失败！');
-            }else {
+            } else {
                 message.success('游戏保存成功！');
                 await fetchGames();
             }
@@ -319,10 +338,14 @@ const Game = () => {
         }
     };
 
-    const openOptimizeModal = (game)=>{
+    const openOptimizeModal = (game) => {
         setOptimizeGame(game);
         // console.log(game.name);
         setIsOptimizeMoadalVisible(true);
+    }
+
+    const openAddGameModal = () => {
+        setIsAddModalVisible(true);
     }
 
     const changeNameHandleOk = (changeNameGame) => {
@@ -345,27 +368,27 @@ const Game = () => {
     };
 
     async function fetchGames() {
-      try {
-        const response = await fetch("http://127.0.0.1:8000/api/v1/game/get_all", {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        try {
+            const response = await fetch("http://127.0.0.1:8000/api/v1/game/get_all", {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
 
-        // 检查响应是否成功
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+            // 检查响应是否成功
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            // 解析 JSON 数据
+            const games = await response.json();
+            setGamelist(games);
+
+            // 在前端展示游戏信息
+        } catch (error) {
+            console.error('Error fetching games:', error);
         }
-
-        // 解析 JSON 数据
-        const games = await response.json();
-        setGamelist(games);
-
-        // 在前端展示游戏信息
-      } catch (error) {
-        console.error('Error fetching games:', error);
-      }
     }
 
     useEffect(() => {
@@ -400,12 +423,30 @@ const Game = () => {
     }, [cardWidth]);
 
     return (
-        <Layout style={{height: "80vh", backgroundColor: "#F5F5F5"}}>
+        <Layout style={{height: "85vh", display: "flex", backgroundColor: "#F5F5F5"}}>
             <Splitter
-                style={{ display: "flex", height: "100%" }}
+                style={{display: "flex", height: "100%"}}
             >
-                <Splitter.Panel collapsible >
+                <Splitter.Panel collapsible>
                     <Layout>
+                        <div
+                            style={{
+                                paddingLeft: "16px",
+                                paddingTop: "16px",
+                                backgroundColor: "#ffffff",
+                            }}
+                        >
+                            <h2
+                                style={{
+                                    margin: 0,
+                                    fontSize: "16px",
+                                    fontWeight: "bold",
+                                    color: "#333",
+                                }}
+                            >
+                                游戏生成
+                            </h2>
+                        </div>
                         <div
                             style={{
                                 display: "flex",
@@ -429,86 +470,144 @@ const Game = () => {
                                 }}
                                 ref={chatContainerRef}
                             >
-                                {messages.map((msg, index) => (
-                                    msg.sender === "bot" ? (
-                                        msg.isCode ? (
-                                            // 如果是代码块，渲染矩形运行框
-                                            <div key={index} style={{
-                                                border: "1px solid #e8e8e8",
-                                                borderRadius: "8px",
-                                                padding: "16px",
-                                                marginBottom: "16px",
-                                                backgroundColor: "#ffffff",
-                                            }}>
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "center",
-                                                        borderRadius: "8px",
-                                                        backgroundColor: "#ffffff",
-                                                    }}
-                                                >
-                                                    {/* 左侧内容：显示名称 */}
-                                                    <div style={{fontWeight: "bold",margin:"0 10px", fontSize: "16px", color: "#333"}}>
-                                                        <CodeOutlined />   {game[msg.uuid]?.name || "新游戏"} {/* 动态显示名称 */}
-                                                    </div>
-                                                    <Popover
-                                                        content={
-                                                            <div style={{ maxWidth: "300px", wordWrap: "break-word" }}>
-                                                                {game[msg.uuid]?.rules || "暂无规则"} {/* 动态显示规则 */}
-                                                            </div>
-                                                        }
-                                                        title="游戏规则"
-                                                    >
-                                                        <Button style={{border:"none"}}>
-                                                            <BookOutlined />规则
-                                                        </Button>
-                                                    </Popover>
-                                                    {/* 右侧按钮区域 */}
+                                {messages.length === 0 ? (
+                                    <div style={{textAlign: "center",paddingTop:"55vh" ,color: "#888"}}>
+                                        <div style={{fontSize: "16px", color: "#888"}}>
+                                            请在下方输入游戏制作需求
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: "24px",
+                                                marginBottom: "8px",
+                                                animation: "arrowMove 1.5s infinite",
+                                                animationName: "arrowMove",
+                                                animationDuration: "1.5s",
+                                                animationIterationCount: "infinite",
+                                                animationTimingFunction: "ease-in-out",
+                                            }}
+                                        >
+                                            <ArrowDownOutlined style={{fontSize: "32px", color: "#888"}}/>
+                                        </div>
+                                        <style jsx>{`
+                                            @keyframes arrowMove {
+                                                0% {
+                                                    transform: translateY(0);
+                                                }
+                                                50% {
+                                                    transform: translateY(15px);
+                                                }
+                                                100% {
+                                                    transform: translateY(0);
+                                                }
+                                            }
+                                        `}</style>
+                                    </div>
+
+                                ) : (
+                                    messages.map((msg, index) => (
+                                        msg.sender === "bot" ? (
+                                            msg.isCode ? (
+                                                // 如果是代码块，渲染矩形运行框
+                                                <div key={index} style={{
+                                                    border: "1px solid #e8e8e8",
+                                                    borderRadius: "8px",
+                                                    padding: "16px",
+                                                    marginBottom: "16px",
+                                                    backgroundColor: "#ffffff",
+                                                }}>
                                                     <div
                                                         style={{
                                                             display: "flex",
-                                                            // flexDirection: "column",
+                                                            justifyContent: "space-between",
                                                             alignItems: "center",
-                                                            gap: "8px",
+                                                            borderRadius: "8px",
+                                                            backgroundColor: "#ffffff",
                                                         }}
                                                     >
-                                                        <Button
-                                                            onClick={() => {
-                                                                const newHtmlCode = game[msg.uuid].code;
-                                                                runHtmlCode(newHtmlCode); // 更新 htmlCode
+                                                        {/* 左侧内容：显示名称 */}
+                                                        <div style={{
+                                                            fontWeight: "bold",
+                                                            margin: "0 10px",
+                                                            fontSize: "16px",
+                                                            color: "#333"
+                                                        }}>
+                                                            <CodeOutlined/> {game[msg.uuid]?.name || "新游戏"} {/* 动态显示名称 */}
+                                                        </div>
+                                                        <Popover
+                                                            content={
+                                                                <div
+                                                                    style={{maxWidth: "300px", wordWrap: "break-word"}}>
+                                                                    {game[msg.uuid]?.rules || "暂无规则"} {/* 动态显示规则 */}
+                                                                </div>
+                                                            }
+                                                            title="游戏规则"
+                                                        >
+                                                            <Button style={{border: "none"}}>
+                                                                <BookOutlined/>规则
+                                                            </Button>
+                                                        </Popover>
+                                                        {/* 右侧按钮区域 */}
+                                                        <div
+                                                            style={{
+                                                                display: "flex",
+                                                                // flexDirection: "column",
+                                                                alignItems: "center",
+                                                                gap: "8px",
                                                             }}
                                                         >
-                                                            <CaretRightOutlined/>运行
-                                                        </Button>
+                                                            <Button
+                                                                onClick={() => {
+                                                                    const newHtmlCode = game[msg.uuid].code;
+                                                                    runHtmlCode(newHtmlCode); // 更新 htmlCode
+                                                                }}
+                                                            >
+                                                                <CaretRightOutlined/>运行
+                                                            </Button>
 
-                                                        <Button
-                                                            onClick={() => openOptimizeModal(game[msg.uuid])}
-                                                        >
-                                                            <AppstoreAddOutlined />优化
-                                                        </Button>
+                                                            <Button
+                                                                onClick={() => openOptimizeModal(game[msg.uuid])}
+                                                            >
+                                                                <AppstoreAddOutlined/>优化
+                                                            </Button>
 
-                                                        <Button
-                                                            onClick={() => saveCode(game[msg.uuid])}
-                                                        >
-                                                            <VerticalAlignBottomOutlined/>保存
-                                                        </Button>
+                                                            <Button
+                                                                onClick={() => saveCode(game[msg.uuid])}
+                                                            >
+                                                                <VerticalAlignBottomOutlined/>保存
+                                                            </Button>
 
 
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                // 如果不是代码块，渲染普通对话框
+                                                <div key={index} style={{textAlign: "left"}}>
+                                                    <div
+                                                        style={{
+                                                            display: "inline-block",
+                                                            margin: "5px",
+                                                            padding: "10px",
+                                                            borderRadius: "5px",
+                                                            backgroundColor: "#f0f0f0",
+                                                            whiteSpace: "pre-line",
+                                                            lineHeight: "1.5",
+                                                        }}
+                                                    >
+                                                        {msg.text.replace(/[#*-]/g, "")}
+                                                    </div>
+                                                </div>
+                                            )
                                         ) : (
-                                            // 如果不是代码块，渲染普通对话框
-                                            <div key={index} style={{ textAlign: "left" }}>
+                                            // 用户消息
+                                            <div key={index} style={{textAlign: "right"}}>
                                                 <div
                                                     style={{
                                                         display: "inline-block",
                                                         margin: "5px",
                                                         padding: "10px",
                                                         borderRadius: "5px",
-                                                        backgroundColor: "#f0f0f0",
+                                                        backgroundColor: "#e6f7ff",
                                                         whiteSpace: "pre-line",
                                                         lineHeight: "1.5",
                                                     }}
@@ -517,28 +616,13 @@ const Game = () => {
                                                 </div>
                                             </div>
                                         )
-                                    ) : (
-                                        // 用户消息
-                                        <div key={index} style={{ textAlign: "right" }}>
-                                            <div
-                                                style={{
-                                                    display: "inline-block",
-                                                    margin: "5px",
-                                                    padding: "10px",
-                                                    borderRadius: "5px",
-                                                    backgroundColor: "#e6f7ff",
-                                                    whiteSpace: "pre-line",
-                                                    lineHeight: "1.5",
-                                                }}
-                                            >
-                                                {msg.text.replace(/[#*-]/g, "")}
-                                            </div>
-                                        </div>
-                                    )
-                                ))}
+                                    )))}
                                 {loading && messages.length > 0 && messages[messages.length - 1].sender === "user" && (
                                     <div style={{textAlign: "left", padding: "10px"}}>
-                                        <strong style={{color:"skyblue",marginRight:"6px"}}>游戏正在精心制作中，请耐心等待5分钟</strong><Spin tip="思考中..."/>
+                                        <strong style={{
+                                            color: "skyblue",
+                                            marginRight: "6px"
+                                        }}>游戏正在精心制作中，请耐心等待5分钟</strong><Spin tip="思考中..."/>
                                     </div>
                                 )}
                             </div>
@@ -552,37 +636,37 @@ const Game = () => {
                                     justifyContent: "center",
                                 }}
                             >
-                        <Input
-                            value={userMessage}
-                            onChange={(e) => setUserMessage(e.target.value)}
-                            onPressEnter={(e) => {
-                                e.preventDefault();
-                                handleAsk(userMessage); // 传递用户消息
-                                setUserMessage(""); // 清空输入框
-                            }}
-                            placeholder="请告诉我您想做的游戏内容..."
-                            style={{
-                                flex: 1,
-                                borderRadius: "4px",
-                                border: "1px solid #e8e8e8",
-                                padding: "8px",
-                            }}
-                        />
-                        <Button
-                            onClick={() => {
-                                handleAsk(userMessage);
-                                setUserMessage("");
-                            }}
-                            loading={loading}
-                            style={{
-                                height:"100%",
-                                borderRadius: "4px",
-                            }}
-                        >
-                            {loading ? "生成中..." : "发送"}
-                        </Button>
-                    </div>
-                </div>
+                                <Input
+                                    value={userMessage}
+                                    onChange={(e) => setUserMessage(e.target.value)}
+                                    onPressEnter={(e) => {
+                                        e.preventDefault();
+                                        handleAsk(userMessage); // 传递用户消息
+                                        setUserMessage(""); // 清空输入框
+                                    }}
+                                    placeholder="请告诉我您想做的游戏内容..."
+                                    style={{
+                                        flex: 1,
+                                        borderRadius: "4px",
+                                        border: "1px solid #e8e8e8",
+                                        padding: "8px",
+                                    }}
+                                />
+                                <Button
+                                    onClick={() => {
+                                        handleAsk(userMessage);
+                                        setUserMessage("");
+                                    }}
+                                    loading={loading}
+                                    style={{
+                                        height: "100%",
+                                        borderRadius: "4px",
+                                    }}
+                                >
+                                    {loading ? "生成中..." : "发送"}
+                                </Button>
+                            </div>
+                        </div>
                     </Layout>
                 </Splitter.Panel>
                 <Splitter.Panel defaultSize={670} min={670}>
@@ -590,7 +674,7 @@ const Game = () => {
                         ref={siderRef} // 绑定 ref 用于监听宽度
                         style={{
                             height: "100%",
-                            backgroundColor:"white",
+                            backgroundColor: "white",
                             borderLeft: "1px solid #E8E8E8",
                             display: "flex",
                             flexDirection: "column",
@@ -599,7 +683,7 @@ const Game = () => {
                         <div
                             style={{
                                 padding: "16px",
-                                backgroundColor:"white",
+                                backgroundColor: "white",
                                 borderBottom: "1px solid #E8E8E8",
                                 display: "flex",
                                 alignItems: "center",
@@ -609,24 +693,24 @@ const Game = () => {
                             <div style={{fontWeight: "bold", fontSize: "18px", color: "#333",}}>
                                 游戏列表
                             </div>
-                            {/*<div>*/}
-                            {/*    <Button*/}
-                            {/*        style={{border:"1px solid #e8e8e8"}}*/}
-                            {/*        type="text"*/}
-                            {/*        onClick={() => {*/}
-                            {/*            // showAddGameModal(); // 打开添加游戏的弹窗*/}
-                            {/*        }}*/}
-                            {/*    >*/}
-                            {/*        +添加游戏*/}
-                            {/*    </Button>*/}
-                            {/*</div>*/}
+                            <div>
+                                <Button
+                                    style={{border: "1px solid #e8e8e8"}}
+                                    type="text"
+                                    onClick={() => {
+                                        openAddGameModal();
+                                    }}
+                                >
+                                    +添加游戏
+                                </Button>
+                            </div>
                         </div>
                         <div
                             style={{
                                 flex: 1, // 填充剩余的高度
                                 display: "flex",
                                 flexDirection: "column",
-                                backgroundColor:"white",
+                                backgroundColor: "white",
                             }}
                         >
                             {gamelist.length === 0 ? (
@@ -655,105 +739,134 @@ const Game = () => {
                                         overflowY: "auto", // 滚动
                                     }}
                                 >
-                                    {gamelist.map((game, index) => (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                border: "1px solid #e8e8e8",
-                                                borderRadius: "8px",
-                                                padding: "16px",
-                                                backgroundColor: "#ffffff",
-                                                height: "100px", // 固定高度
-                                                display: "flex", // 让内容居中
-                                                flexDirection: "column", // 垂直布局
-                                                justifyContent: "space-between", // 内容上下分布
-                                            }}
-                                        >
+                                    {gamelist.map((game, index) => {
+                                        // 随机从马卡龙配色中选择一个颜色
+                                        const randomColor = macaronColors[index % macaronColors.length];
+
+                                        return (
                                             <div
+                                                key={index}
                                                 style={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
+                                                    border: `2px solid ${randomColor}`, // 使用随机颜色作为边框
                                                     borderRadius: "8px",
-                                                    backgroundColor: "#ffffff",
+                                                    padding: "16px",
+                                                    backgroundColor: randomColor,
+                                                    height: "100px", // 固定高度
+                                                    display: "flex", // 让内容居中
+                                                    flexDirection: "column", // 垂直布局
+                                                    justifyContent: "space-between", // 内容上下分布
                                                 }}
                                             >
-                                                {/* 左侧内容：显示名称 */}
-                                                <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
-                                                    <Popover
-                                                        content={
-                                                            <div style={{maxWidth: "300px", wordWrap: "break-word"}}>
-                                                                {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
-                                                            </div>
-                                                        }
-                                                        title="游戏规则"
-                                                    >
-                                                        <Button style={{border: "none", fontSize: "medium"}}>
-                                                            <strong>{game.name || "新游戏"}</strong>
-                                                        </Button>
-                                                    </Popover>
-
-                                                </div>
-
-
-                                                {/* 右侧按钮区域 */}
                                                 <div
                                                     style={{
-                                                        display: "grid",
-                                                        gridTemplateRows: "repeat(2, 1fr)", // 两行
-                                                        gridTemplateColumns: "repeat(2, 1fr)", // 两列
-                                                        gap: "8px", // 按钮之间的间距
-                                                        justifyItems: "center", // 水平居中
-                                                        alignItems: "center", // 垂直居中
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        borderRadius: "8px",
+                                                        backgroundColor: randomColor,
                                                     }}
                                                 >
-                                                    <Tooltip title="运行">
-                                                        <Button
-                                                            onClick={() => {
-                                                                runHtmlCode(game.code);
-                                                            }}
+                                                    {/* 左侧内容：显示名称 */}
+                                                    <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
+                                                        <Popover
+                                                            content={
+                                                                <div
+                                                                    style={{maxWidth: "300px", wordWrap: "break-word"}}>
+                                                                    {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
+                                                                </div>
+                                                            }
+                                                            title="游戏规则"
                                                         >
-                                                            <CaretRightOutlined/>
-                                                        </Button>
-                                                    </Tooltip>
+                                                            <Button style={{
+                                                                border: "none",
+                                                                fontSize: "medium",
+                                                                backgroundColor: randomColor,
+                                                                color: "#444"
+                                                            }}>
+                                                                <strong>{game.name || "新游戏"}</strong>
+                                                            </Button>
+                                                        </Popover>
+                                                    </div>
 
-                                                    <Tooltip title="优化">
-                                                        <Button
-                                                            onClick={() => {
-                                                                openOptimizeModal(game)
-                                                            }}
-                                                        >
-                                                            <AppstoreAddOutlined/>
-                                                        </Button>
-                                                    </Tooltip>
-
-                                                    <Tooltip title="修改名字">
-                                                        <Button
-                                                            onClick={() => {
-                                                                showChangeNameModal(game); // 显示弹出框
-                                                            }}
-                                                        >
-                                                            <EditOutlined/>
-                                                        </Button>
-                                                    </Tooltip>
-
-                                                    <Popconfirm
-                                                        title={`确定要删除游戏 "${game.name}" 吗?`}
-                                                        onConfirm={() => deleteGame(game.uuid)} // 点击确认按钮时调用 deleteGame
-                                                        okText="Yes"
-                                                        cancelText="No"
+                                                    {/* 右侧按钮区域 */}
+                                                    <div
+                                                        style={{
+                                                            display: "grid",
+                                                            gridTemplateRows: "repeat(2, 1fr)", // 两行
+                                                            gridTemplateColumns: "repeat(2, 1fr)", // 两列
+                                                            gap: "8px", // 按钮之间的间距
+                                                            justifyItems: "center", // 水平居中
+                                                            alignItems: "center", // 垂直居中
+                                                        }}
                                                     >
-                                                        <Tooltip title="删除">
-                                                            <Button danger>
-                                                                <ClearOutlined/>
+                                                        <Tooltip title="运行">
+                                                            <Button
+                                                                type="text"
+                                                                style={{
+                                                                    backgroundColor: randomColor,
+                                                                    border: "1px solid #999"
+                                                                }}
+                                                                onClick={() => {
+                                                                    runHtmlCode(game.code);
+                                                                }}
+                                                            >
+                                                                <CaretRightOutlined/>
                                                             </Button>
                                                         </Tooltip>
-                                                    </Popconfirm>
-                                                </div>
 
+                                                        <Tooltip title="优化">
+                                                            <Button
+                                                                type="text"
+                                                                style={{
+                                                                    backgroundColor: randomColor,
+                                                                    border: "1px solid #999"
+                                                                }}
+                                                                onClick={() => {
+                                                                    openOptimizeModal(game);
+                                                                }}
+                                                            >
+                                                                <AppstoreAddOutlined/>
+                                                            </Button>
+                                                        </Tooltip>
+
+                                                        <Tooltip title="修改名字">
+                                                            <Button
+                                                                type="text"
+                                                                style={{
+                                                                    backgroundColor: randomColor,
+                                                                    border: "1px solid #999"
+                                                                }}
+                                                                onClick={() => {
+                                                                    showChangeNameModal(game); // 显示弹出框
+                                                                }}
+                                                            >
+                                                                <EditOutlined/>
+                                                            </Button>
+                                                        </Tooltip>
+
+                                                        <Popconfirm
+                                                            title={`确定要删除游戏 "${game.name}" 吗?`}
+                                                            onConfirm={() => deleteGame(game.uuid)} // 点击确认按钮时调用 deleteGame
+                                                            okText="Yes"
+                                                            cancelText="No"
+                                                        >
+                                                            <Tooltip title="删除">
+                                                                <Button
+                                                                    type="text"
+                                                                    style={{
+                                                                        backgroundColor: randomColor,
+                                                                        border: "1px solid #999"
+                                                                    }}
+                                                                    danger>
+                                                                    <ClearOutlined/>
+                                                                </Button>
+                                                            </Tooltip>
+                                                        </Popconfirm>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -781,6 +894,15 @@ const Game = () => {
                 onClose={() => setIsOptimizeMoadalVisible(false)}
                 saveCode={saveCode}
                 gameToOptimize={optimizeGame}
+                decompressResult={decompressResult}
+            />
+
+            <AddGameModal
+                visible={isAddModalVisible}
+                onClose={() => setIsAddModalVisible(false)}
+                onSave={saveCode}
+                askName={askName}
+                askRules={askRules}
             />
 
         </Layout>
