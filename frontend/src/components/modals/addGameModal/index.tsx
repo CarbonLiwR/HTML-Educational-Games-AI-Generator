@@ -91,7 +91,6 @@ const AddGameModal = ({visible, onClose, onSave, askName, askRules}) => {
             return;
         }
 
-
         const gameUuid = Math.random().toString(36).substring(2, 10).toUpperCase();
         onSave({name: gameName, rules: gameRules, code: htmlCode, uuid:gameUuid ,url: ""});
         message.success("游戏已保存！");

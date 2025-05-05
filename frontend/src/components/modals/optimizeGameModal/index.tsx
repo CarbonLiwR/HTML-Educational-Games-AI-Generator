@@ -154,7 +154,7 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressRes
         // console.log("当前游戏内容:", gameOptimize);
         // return
         // 调用优化函数
-        console.log(JSON.stringify(gameOptimize));
+        // console.log(JSON.stringify(gameOptimize));
         const optimizedGame = await optimizeGame(gameOptimize, message); // 调用传入的优化函数，返回最新的 game
 
         setLoading(false); // 取消加载状态

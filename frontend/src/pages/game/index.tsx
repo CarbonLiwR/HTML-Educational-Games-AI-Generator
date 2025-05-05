@@ -427,6 +427,225 @@ const Game = () => {
             <Splitter
                 style={{display: "flex", height: "100%"}}
             >
+                <Splitter.Panel defaultSize={670} min={670}>
+                    <div
+                        ref={siderRef} // 绑定 ref 用于监听宽度
+                        style={{
+                            height: "100%",
+                            backgroundColor: "white",
+                            borderLeft: "1px solid #E8E8E8",
+                            display: "flex",
+                            flexDirection: "column",
+                        }}
+                    >
+                        <div
+                            style={{
+                                padding: "16px",
+                                backgroundColor: "white",
+                                borderBottom: "1px solid #E8E8E8",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                            }}
+                        >
+                            <div style={{fontWeight: "bold", fontSize: "18px", color: "#333",}}>
+                                游戏列表
+                            </div>
+                            <div>
+                                <Button
+                                    style={{border: "1px solid #e8e8e8"}}
+                                    type="text"
+                                    onClick={() => {
+                                        openAddGameModal();
+                                    }}
+                                >
+                                    +添加游戏
+                                </Button>
+                            </div>
+                        </div>
+                        <div
+                            style={{
+                                flex: 1, // 填充剩余的高度
+                                display: "flex",
+                                flexDirection: "column",
+                                backgroundColor: "white",
+                            }}
+                        >
+                            {gamelist.length === 0 ? (
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "#999",
+                                    }}
+                                >
+                                    <MailOutlined
+                                        style={{
+                                            fontSize: 48,
+                                            marginTop: 16,
+                                            marginBottom: 16,
+                                            color: "#999",
+                                        }}
+                                    />
+                                    <Text style={{color: "#999"}}>暂无数据</Text>
+                                </div>
+                            ) : (
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        display: "grid",
+                                        gridTemplateColumns: `repeat(${columns}, 1fr)`, // 动态列数
+                                        gridGap: "16px", // 间距
+                                        padding: "16px",
+                                        overflowY: "auto", // 滚动
+                                        alignItems: "start", // 让内容从顶部开始排列
+                                        gridAutoRows: "min-content", // 每行的高度适应内容
+                                    }}
+                                >
+                                    {gamelist.map((game, index) => {
+                                        // 随机从马卡龙配色中选择一个颜色
+                                        const randomColor = macaronColors[index % macaronColors.length];
+
+                                        return (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    border: `2px solid ${randomColor}`, // 使用随机颜色作为边框
+                                                    borderRadius: "8px",
+                                                    padding: "16px",
+                                                    backgroundColor: randomColor,
+                                                    height: "auto", // 自动高度
+                                                    display: "flex", // 让内容居中
+                                                    flexDirection: "column", // 垂直布局
+                                                    justifyContent: "space-between", // 内容上下分布
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        borderRadius: "8px",
+                                                        backgroundColor: randomColor,
+                                                    }}
+                                                >
+                                                    {/* 左侧内容：显示名称 */}
+                                                    <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
+                                                        <Popover
+                                                            content={
+                                                                <div
+                                                                    style={{
+                                                                        maxWidth: "300px",
+                                                                        wordWrap: "break-word",
+                                                                    }}
+                                                                >
+                                                                    {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
+                                                                </div>
+                                                            }
+                                                            title="游戏规则"
+                                                        >
+                                                            <Button
+                                                                style={{
+                                                                    border: "none",
+                                                                    fontSize: "medium",
+                                                                    backgroundColor: randomColor,
+                                                                    color: "#444",
+                                                                }}
+                                                            >
+                                                                <strong>{game.name || "新游戏"}</strong>
+                                                            </Button>
+                                                        </Popover>
+                                                    </div>
+
+                                                    {/* 右侧按钮区域 */}
+                                                    <div
+                                                        style={{
+                                                            display: "grid",
+                                                            gridTemplateRows: "repeat(2, 1fr)", // 两行
+                                                            gridTemplateColumns: "repeat(2, 1fr)", // 两列
+                                                            gap: "8px", // 按钮之间的间距
+                                                            justifyItems: "center", // 水平居中
+                                                            alignItems: "center", // 垂直居中
+                                                        }}
+                                                    >
+                                                        <Tooltip title="运行">
+                                                            <Button
+                                                                type="text"
+                                                                style={{
+                                                                    backgroundColor: randomColor,
+                                                                    border: "1px solid #999",
+                                                                }}
+                                                                onClick={() => {
+                                                                    runHtmlCode(game.code);
+                                                                }}
+                                                            >
+                                                                <CaretRightOutlined/>
+                                                            </Button>
+                                                        </Tooltip>
+
+                                                        <Tooltip title="优化">
+                                                            <Button
+                                                                type="text"
+                                                                style={{
+                                                                    backgroundColor: randomColor,
+                                                                    border: "1px solid #999",
+                                                                }}
+                                                                onClick={() => {
+                                                                    openOptimizeModal(game);
+                                                                }}
+                                                            >
+                                                                <AppstoreAddOutlined/>
+                                                            </Button>
+                                                        </Tooltip>
+
+                                                        <Tooltip title="修改名字">
+                                                            <Button
+                                                                type="text"
+                                                                style={{
+                                                                    backgroundColor: randomColor,
+                                                                    border: "1px solid #999",
+                                                                }}
+                                                                onClick={() => {
+                                                                    showChangeNameModal(game); // 显示弹出框
+                                                                }}
+                                                            >
+                                                                <EditOutlined/>
+                                                            </Button>
+                                                        </Tooltip>
+
+                                                        <Popconfirm
+                                                            title={`确定要删除游戏 "${game.name}" 吗?`}
+                                                            onConfirm={() => deleteGame(game.uuid)} // 点击确认按钮时调用 deleteGame
+                                                            okText="Yes"
+                                                            cancelText="No"
+                                                        >
+                                                            <Tooltip title="删除">
+                                                                <Button
+                                                                    type="text"
+                                                                    style={{
+                                                                        backgroundColor: randomColor,
+                                                                        border: "1px solid #999",
+                                                                    }}
+                                                                    danger
+                                                                >
+                                                                    <ClearOutlined/>
+                                                                </Button>
+                                                            </Tooltip>
+                                                        </Popconfirm>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+                </Splitter.Panel>
                 <Splitter.Panel collapsible>
                     <Layout>
                         <div
@@ -471,7 +690,7 @@ const Game = () => {
                                 ref={chatContainerRef}
                             >
                                 {messages.length === 0 ? (
-                                    <div style={{textAlign: "center",paddingTop:"55vh" ,color: "#888"}}>
+                                    <div style={{textAlign: "center", paddingTop: "55vh", color: "#888"}}>
                                         <div style={{fontSize: "16px", color: "#888"}}>
                                             请在下方输入游戏制作需求
                                         </div>
@@ -555,7 +774,7 @@ const Game = () => {
                                                                 gap: "8px",
                                                             }}
                                                         >
-                                                            <Button
+                                                        <Button
                                                                 onClick={() => {
                                                                     const newHtmlCode = game[msg.uuid].code;
                                                                     runHtmlCode(newHtmlCode); // 更新 htmlCode
@@ -669,209 +888,7 @@ const Game = () => {
                         </div>
                     </Layout>
                 </Splitter.Panel>
-                <Splitter.Panel defaultSize={670} min={670}>
-                    <div
-                        ref={siderRef} // 绑定 ref 用于监听宽度
-                        style={{
-                            height: "100%",
-                            backgroundColor: "white",
-                            borderLeft: "1px solid #E8E8E8",
-                            display: "flex",
-                            flexDirection: "column",
-                        }}
-                    >
-                        <div
-                            style={{
-                                padding: "16px",
-                                backgroundColor: "white",
-                                borderBottom: "1px solid #E8E8E8",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                            }}
-                        >
-                            <div style={{fontWeight: "bold", fontSize: "18px", color: "#333",}}>
-                                游戏列表
-                            </div>
-                            <div>
-                                <Button
-                                    style={{border: "1px solid #e8e8e8"}}
-                                    type="text"
-                                    onClick={() => {
-                                        openAddGameModal();
-                                    }}
-                                >
-                                    +添加游戏
-                                </Button>
-                            </div>
-                        </div>
-                        <div
-                            style={{
-                                flex: 1, // 填充剩余的高度
-                                display: "flex",
-                                flexDirection: "column",
-                                backgroundColor: "white",
-                            }}
-                        >
-                            {gamelist.length === 0 ? (
-                                <div
-                                    style={{
-                                        flex: 1,
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color: "#999",
-                                    }}
-                                >
-                                    <MailOutlined
-                                        style={{fontSize: 48, marginTop: 16, marginBottom: 16, color: "#999"}}/>
-                                    <Text style={{color: "#999"}}>暂无数据</Text>
-                                </div>
-                            ) : (
-                                <div
-                                    style={{
-                                        flex: 1,
-                                        display: "grid",
-                                        gridTemplateColumns: `repeat(${columns}, 1fr)`, // 动态列数
-                                        gridGap: "16px", // 间距
-                                        padding: "16px",
-                                        overflowY: "auto", // 滚动
-                                    }}
-                                >
-                                    {gamelist.map((game, index) => {
-                                        // 随机从马卡龙配色中选择一个颜色
-                                        const randomColor = macaronColors[index % macaronColors.length];
 
-                                        return (
-                                            <div
-                                                key={index}
-                                                style={{
-                                                    border: `2px solid ${randomColor}`, // 使用随机颜色作为边框
-                                                    borderRadius: "8px",
-                                                    padding: "16px",
-                                                    backgroundColor: randomColor,
-                                                    height: "100px", // 固定高度
-                                                    display: "flex", // 让内容居中
-                                                    flexDirection: "column", // 垂直布局
-                                                    justifyContent: "space-between", // 内容上下分布
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "center",
-                                                        borderRadius: "8px",
-                                                        backgroundColor: randomColor,
-                                                    }}
-                                                >
-                                                    {/* 左侧内容：显示名称 */}
-                                                    <div style={{fontWeight: "bold", fontSize: "16px", color: "#333"}}>
-                                                        <Popover
-                                                            content={
-                                                                <div
-                                                                    style={{maxWidth: "300px", wordWrap: "break-word"}}>
-                                                                    {game?.rules || "暂无规则"} {/* 动态显示规则内容 */}
-                                                                </div>
-                                                            }
-                                                            title="游戏规则"
-                                                        >
-                                                            <Button style={{
-                                                                border: "none",
-                                                                fontSize: "medium",
-                                                                backgroundColor: randomColor,
-                                                                color: "#444"
-                                                            }}>
-                                                                <strong>{game.name || "新游戏"}</strong>
-                                                            </Button>
-                                                        </Popover>
-                                                    </div>
-
-                                                    {/* 右侧按钮区域 */}
-                                                    <div
-                                                        style={{
-                                                            display: "grid",
-                                                            gridTemplateRows: "repeat(2, 1fr)", // 两行
-                                                            gridTemplateColumns: "repeat(2, 1fr)", // 两列
-                                                            gap: "8px", // 按钮之间的间距
-                                                            justifyItems: "center", // 水平居中
-                                                            alignItems: "center", // 垂直居中
-                                                        }}
-                                                    >
-                                                        <Tooltip title="运行">
-                                                            <Button
-                                                                type="text"
-                                                                style={{
-                                                                    backgroundColor: randomColor,
-                                                                    border: "1px solid #999"
-                                                                }}
-                                                                onClick={() => {
-                                                                    runHtmlCode(game.code);
-                                                                }}
-                                                            >
-                                                                <CaretRightOutlined/>
-                                                            </Button>
-                                                        </Tooltip>
-
-                                                        <Tooltip title="优化">
-                                                            <Button
-                                                                type="text"
-                                                                style={{
-                                                                    backgroundColor: randomColor,
-                                                                    border: "1px solid #999"
-                                                                }}
-                                                                onClick={() => {
-                                                                    openOptimizeModal(game);
-                                                                }}
-                                                            >
-                                                                <AppstoreAddOutlined/>
-                                                            </Button>
-                                                        </Tooltip>
-
-                                                        <Tooltip title="修改名字">
-                                                            <Button
-                                                                type="text"
-                                                                style={{
-                                                                    backgroundColor: randomColor,
-                                                                    border: "1px solid #999"
-                                                                }}
-                                                                onClick={() => {
-                                                                    showChangeNameModal(game); // 显示弹出框
-                                                                }}
-                                                            >
-                                                                <EditOutlined/>
-                                                            </Button>
-                                                        </Tooltip>
-
-                                                        <Popconfirm
-                                                            title={`确定要删除游戏 "${game.name}" 吗?`}
-                                                            onConfirm={() => deleteGame(game.uuid)} // 点击确认按钮时调用 deleteGame
-                                                            okText="Yes"
-                                                            cancelText="No"
-                                                        >
-                                                            <Tooltip title="删除">
-                                                                <Button
-                                                                    type="text"
-                                                                    style={{
-                                                                        backgroundColor: randomColor,
-                                                                        border: "1px solid #999"
-                                                                    }}
-                                                                    danger>
-                                                                    <ClearOutlined/>
-                                                                </Button>
-                                                            </Tooltip>
-                                                        </Popconfirm>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </Splitter.Panel>
             </Splitter>
 
             <Modal

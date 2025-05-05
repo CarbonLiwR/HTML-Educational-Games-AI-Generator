@@ -216,7 +216,7 @@ async def api_ask_chain(request: ChatRequest):
                                         2.尽可能将游戏运作细节展示到html，设计好html，css，Javascript框架
                                         3.重点在保证能使用的前提下规划Javascript交互逻辑的健壮性，规划HTML每个元素的css属性和样式等内容
                                         4.设计出可能要用到的Javascript函数名
-                                        5.html展示的内容一定要与JavaScript交互逻辑相协调（例如：要实现两个相同单词消除的动作，html内容就要保证有两个相同单词的出现）
+                                        5.html展示的内容一定要与JavaScript交互逻辑相协调
                                         6.指出实现代码模块时需要注意的问题     
                                        【规则】
                                        1.只输出游戏具体的框架规划
@@ -242,7 +242,7 @@ async def api_ask_chain(request: ChatRequest):
                 )
                 first_reply = response_1.choices[0].message.content
                 #获取名字和游戏规则
-                print(first_reply)
+                # print(first_reply)
                 first_reply = re.sub(r'#', '', first_reply)
                 pattern = r"游戏名称:\s*(.*?)\n\n游戏规则:\s*(.*?)\n\n"
                 match = re.search(pattern, first_reply, re.S)
@@ -259,6 +259,7 @@ async def api_ask_chain(request: ChatRequest):
                 response_2 = await asyncio.to_thread(
                     client.chat.completions.create,
                     # model='deepseek-reasoner',
+                    # model='o1-preview',
                     model='o1',
                     messages=[
                         {
@@ -293,6 +294,8 @@ async def api_ask_chain(request: ChatRequest):
                 # print(second_reply)
                 reply = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
                 compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
+                # print(compressed_reply)
+                print("生成游戏成功")
                 await queue.put(json.dumps({
                     "type": "answer",
                     "game_name": game_name,
@@ -358,8 +361,8 @@ async def api_optimize(request: OptimizeGameRequest):
                 # print(first_prompt)
                 response = await asyncio.to_thread(
                     client.chat.completions.create,
-                    # model='gpt-4o-mini',
-                    model='o1',
+                    model='gpt-4o',
+                    # model='o1',
                     messages=[
                         {
                             "role": "system",
@@ -376,14 +379,15 @@ async def api_optimize(request: OptimizeGameRequest):
                     ]
                 )
                 reply = response.choices[0].message.content
-                print(reply)
+                # print(reply)
+                # print("回复完成")
                 game_name = await api_ask_getname(request=ChatRequest(question=reply, user_token=user_token))
                 # print(game_name)
                 game_rules = await api_ask_getaskrules(request=ChatRequest(question=reply, user_token=user_token))
                 # print(game_rules)
                 compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
                 # print(compressed_reply)
-
+                print("游戏优化成功")
                 await queue.put(json.dumps({
                     "type": "answer",
                     "result": compressed_reply,
@@ -417,17 +421,19 @@ async def api_optimize(request: OptimizeGameRequest):
 async def api_ask_getname(request: ChatRequest):
     question = request.question
     user_token = request.user_token
-    user = await get_user_llm_info(user_token=user_token)
+    # user = await get_user_llm_info(user_token=user_token)
     client = OpenAI(
         # api_key=user.get('api_key'),
         api_key=good_api_key,
-        base_url=user.get('api_url')
+        # base_url=user.get('api_url')
+        base_url="https://api.rcouyi.com/v1"
     )
     response = await asyncio.to_thread(
         client.chat.completions.create,
-        model=user.get('model_name'),
+        # model=user.get('model_name'),
+        model="gpt-4o-mini",
         messages=[
-            {"role": "user", "content": f"请给下面的代码游戏内容取一个名字，与教育相关，要求字数不超过10个字，直接生成名字不需要解释，不要md格式，纯文字输出，下面是代码内容:+{question}"}
+            {"role": "user", "content": f"请给下面的代码游戏内容取一个名字，与教育相关，要求字数不超过10个字，直接生成名字不需要解释，不要md格式，纯文字输出，下面是代码内容:{question}"}
         ]
     )
     assistant_reply = response.choices[0].message.content
@@ -438,15 +444,17 @@ async def api_ask_getname(request: ChatRequest):
 async def api_ask_getaskrules(request: ChatRequest):
     question = request.question
     user_token = request.user_token
-    user = await get_user_llm_info(user_token=user_token)
+    # user = await get_user_llm_info(user_token=user_token)
     client = OpenAI(
         # api_key=user.get('api_key'),
         api_key=good_api_key,
-        base_url=user.get('api_url')
+        base_url="https://api.rcouyi.com/v1"
+        # base_url=user.get('api_url')
     )
     response = await asyncio.to_thread(
         client.chat.completions.create,
-        model=user.get('model_name'),
+        model="gpt-4o-mini",
+        # model=user.get('model_name'),
         messages=[
             {
                 "role": "user",
