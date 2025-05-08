@@ -291,9 +291,9 @@ async def api_ask_chain(request: ChatRequest):
                 # print(first_prompt)
                 response_mid = await asyncio.to_thread(
                     client.chat.completions.create,
-                    # model='deepseek-v3',
+                    model='deepseek-v3',
                     # model='gpt-4o',
-                    model='o1',
+                    # model='o1',
                     messages=[
                         {
                             "role": "system",
@@ -313,8 +313,8 @@ async def api_ask_chain(request: ChatRequest):
                 # print(second_prompt)
                 response_2 = await asyncio.to_thread(
                     client.chat.completions.create,
-                    # model='deepseek-v3',
-                    model='o1',
+                    model='deepseek-reasoner',
+                    # model='o1',
                     # model='gpt-4o',
                     messages=[
                         {
@@ -355,7 +355,7 @@ async def api_ask_chain(request: ChatRequest):
                     await queue.put(json.dumps(chunk_data) + "\n")
                     # 发送结束标识
                 await queue.put(json.dumps({"type": "end"}) + "\n")
-                # print("游戏生成成功")
+                print("游戏生成成功")
 
             except Exception as e:
                 # 推送错误信息
