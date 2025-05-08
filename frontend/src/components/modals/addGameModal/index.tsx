@@ -17,6 +17,7 @@ const AddGameModal = ({visible, onClose, onSave, askName, askRules}) => {
             // 如果包含 HTML 标签并且至少有结构性标签，则认为是有效 HTML
             return hasHtmlTags && containsStructuralTags;
         };
+
     const handleGenerateName = async () => {
         if (!htmlCode) {
             message.error("请先填写 HTML 代码内容！");

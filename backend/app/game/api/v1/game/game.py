@@ -1,14 +1,14 @@
+import asyncio
+import base64
 import contextlib
+import gzip
 import json
 import re
-import gzip
-import base64
-import asyncio
-from fastapi import APIRouter, HTTPException,Body
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException
 from openai import OpenAI
 from pydantic import BaseModel
-from typing import List , Optional
-
 from starlette.responses import StreamingResponse
 
 from backend.app.game.schema.game_chat_history_schemas import ChatRequest
@@ -20,28 +20,31 @@ router = APIRouter()
 
 max_history_length = 50
 
+
 # 定义 Pydantic 模型
 class Game(BaseModel):
-    uuid:str
+    uuid: str
     name: Optional[str] = None
     url: Optional[str] = None
     rules: Optional[str] = None
     code: str
+
 
 class GameDeleteRequest(BaseModel):
     uuid: str
 
 
-
 class GameResponse(BaseModel):
-    uuid:str
+    uuid: str
     name: Optional[str] = None
     url: Optional[str] = None
     rules: Optional[str] = None
     code: str
+
     class Config:
         orm_mode = True  # 启用 ORM 模式
         from_attributes = True
+
 
 @router.get('/game/get_all', response_model=List[GameResponse])
 async def get_all_game():
@@ -56,6 +59,7 @@ async def get_all_game():
     except Exception as e:
         print("Error occurred while processing games:", str(e))  # 打印具体错误信息
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 @router.get('/game/get/{id}', response_model=GameResponse)
 async def get_game_by_id(id: int):
@@ -80,6 +84,7 @@ async def game_save(game: Game):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving game: {str(e)}")
 
+
 @router.delete('/game/delete/{uuid}')
 async def game_delete(uuid: str):
     """
@@ -96,7 +101,7 @@ class UpdateGameNameRequest(BaseModel):
 
 
 @router.put('/game/update/{uuid}')
-async def game_name_update(uuid:str,request: UpdateGameNameRequest):
+async def game_name_update(uuid: str, request: UpdateGameNameRequest):
     """
     修改游戏名字的 API
     :param uuid: 游戏的 UUID
@@ -111,7 +116,9 @@ async def game_name_update(uuid:str,request: UpdateGameNameRequest):
         raise HTTPException(status_code=404, detail=f"Game with UUID {uuid} not found")
     return {"message": f"Game with UUID {uuid} successfully updated to name '{new_name}'"}
 
+
 good_api_key = "sk-uY3KxnnEiug7Yhzi93059e944eA2468788Bb14C5108560E9"
+
 
 @router.post('/game/ask')
 async def api_ask_stream(request: ChatRequest):
@@ -174,6 +181,7 @@ async def api_ask_stream(request: ChatRequest):
 
     return StreamingResponse(event_stream(), media_type='application/x-ndjson')
 
+
 @router.post('/game/ask_chain')
 async def api_ask_chain(request: ChatRequest):
     question = request.question
@@ -187,7 +195,7 @@ async def api_ask_chain(request: ChatRequest):
     )
 
     async def event_stream():
-        #心跳
+        # 心跳
         async def heartbeat_sender(queue):
             try:
                 while True:
@@ -195,7 +203,8 @@ async def api_ask_chain(request: ChatRequest):
                     await asyncio.sleep(50)  # 心跳间隔时间
             except asyncio.CancelledError:
                 pass
-        #主任务
+
+        # 主任务
         async def main_logic(queue):
             try:
                 # 第一次调用 API
@@ -203,36 +212,91 @@ async def api_ask_chain(request: ChatRequest):
                 # print(first_prompt)
                 response_1 = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model='gpt-4o',
+                    model='o1',
                     # model='gpt-4o',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                                       【名称】
-                                       课堂游戏html规划
-                                       【操作指令】
-                                        1.需要穫暹瘤规划出开始游戏、结束游戏、重置游戏的布局
-                                        2.尽可能将游戏运作细节展示到html，设计好html，css，Javascript框架
-                                        3.重点在保证能使用的前提下规划Javascript交互逻辑的健壮性，规划HTML每个元素的css属性和样式等内容
-                                        4.设计出可能要用到的Javascript函数名
-                                        5.html展示的内容一定要与JavaScript交互逻辑相协调
-                                        6.指出实现代码模块时需要注意的问题     
-                                       【规则】
-                                       1.只输出游戏具体的框架规划
-                                       2.不输出代码
-                                       3.不输出markdown格式
-                                       【输出格式要求】
-                                       游戏名称:
-                                       XXX
-                                       游戏规则:
-                                       XXX
-                                       游戏代码框架规划:
-                                       XXX 
-                                       需要注意的问题： 
-                                       XXX
-                                      
-                                   """
+                            现在你是 HTML5 游戏规划专家，请根据用户需求，输出该游戏的核心规划，包含以下精简模块，并严格用下方结构化格式返回(不要多余文字):
+                            1.教学背景与目标
+                                教学主题:
+                                教学目标:
+                            2.页面布局与样式
+                                标题样式(字号/颜色)
+                                背景与配色
+                                班级互动区(教师参数面板+成绩面板)
+                            3.核心玩法与规则
+                                目标说明
+                                操作方式
+                                计分与奖励
+                                游戏规则需要保证完整性
+                            4. 技术实现与架构
+                                技术栈
+                                模块划分(数据层/视图层/逻辑层)
+                                数据流(用户操作一事件回调→状态更新一渲染)
+                                兼顾EDGE的格式
+                            5.数据导入
+                                支持格式(txt/csv/json)
+                                上传与验证
+                            6.逻辑流程
+                                启动流程:参数校验一加载一渲染
+                                回合流程:点击一校验一更新一反馈
+                            7.交互反馈与按钮
+                                视觉/音效反馈
+                                -“开始游戏”/“重新开始“按钮
+                                
+                            **特别注意点：游戏名称和游戏规则必须保证按照给定格式输出
+                            
+                            输出格式：
+                            游戏名称：
+                            XXX
+                                
+                            游戏规则：
+                            XXX
+                                
+                            教学背景与目标:
+                            教学主题:
+                            教学目标:
+                                
+                            参考案例：
+                            游戏名称：
+                            数学贪吃蛇
+                                
+                            游戏规则：
+                            玩家需要使用上下左右键控制贪吃蛇吃到特定的球
+                                
+                            页面布局与样式:
+                                标题样式:
+                                字号: "xx"
+                                颜色: "#xxxxxx"
+                                背景: "#xxxxxx"
+                            互动区:
+                                教师面板: ["倒计时","难度"]
+                                成绩面板: ["个人得分","小组进度"]
+                                
+                            核心玩法与规则:
+                                目标说明: "…"
+                                操作方式: "…"
+                                计分与奖励: "…"
+                                
+                            技术实现与架构:
+                                技术栈: ["HTML5","CSS3","JavaScript"]
+                                模块划分: ["数据层","视图层","逻辑层"]
+                                数据流: "用户操作→回调→状态更新→渲染"
+                                
+                            数据导入:
+                                格式: ["txt","csv","json"]
+                                验证: "文件格式及内容校验流程"
+                                
+                            逻辑流程:
+                                启动流程: "校验→加载→渲染"
+                                回合流程: "点击→校验→更新→反馈"
+                                
+                            交互反馈与按钮:
+                                反馈: ["点击高亮","正确/错误音效","消除特效"]
+                                按钮: ["开始游戏","重新开始"]
+                            """
                         },
                         {
                             "role": "user",
@@ -241,30 +305,33 @@ async def api_ask_chain(request: ChatRequest):
                     ]
                 )
                 first_reply = response_1.choices[0].message.content
-                #获取名字和游戏规则
-                # print(first_reply)
                 first_reply = re.sub(r'#', '', first_reply)
-                pattern = r"游戏名称:\s*(.*?)\n\n游戏规则:\s*(.*?)\n\n"
+                # first_reply = re.sub(r"yaml|YAML|```", "", first_reply, flags=re.IGNORECASE)
+                first_reply = first_reply.strip()
+
+                pattern = r"游戏名称[:：]\s*(.*?)\n+游戏规则[:：]\s*(.*?)\n+"
                 match = re.search(pattern, first_reply, re.S)
 
                 if match:
-                    game_name = match.group(1).strip()  # 提取游戏名称并去除多余空格
-                    game_rules = match.group(2).strip()  # 提取游戏规则并去除多余空格
-
-                #第二次api调用
+                    game_name = match.group(1).strip() if match.group(1) else ""
+                    game_rules = match.group(2).strip() if match.group(2) else ""
+                    # print("游戏名称:", game_name)
+                    # print("游戏规则:", game_rules)
+                else:
+                    print("未找到匹配的游戏名称和规则")
+                    # print(first_reply)
+                    return
+                # 第二次api调用
                 second_prompt = f"""\n【游戏规划】：{first_reply}【用户需求】：{question}"""
-
                 # print(second_prompt)
-
                 response_2 = await asyncio.to_thread(
                     client.chat.completions.create,
                     # model='deepseek-reasoner',
-                    # model='o1-preview',
                     model='o1',
                     messages=[
                         {
                             "role": "system",
-                            "content":"""
+                            "content": """
                                 【名称】
                                 HTML游戏生成助手
                                 【操作指令】
@@ -272,16 +339,16 @@ async def api_ask_chain(request: ChatRequest):
                                 2.使用HTML语言编写游戏规则和使用流程的展示页面，包括页面头部、主体内容以及交互操作的布局
                                 3.重点:必须包含用户提供的所有上课内容
                                 4.函数实现过程要解决规划中提到的重点问题
-                               
+
                                 【规则】
                                 1.HTML代码格式必须符合规范以确保兼容性和可读性，同时需避免使用未支持的HTML标签
                                 2.注意:所有代码都放在一个html，结果返回完整的htmI代码
-                            
+                                3.保证有20左右的函数完成游戏逻辑的实现，生成的函数要有健壮性
+                                4.请保证有400行左右代码提供完整的逻辑保障，但不需要出现具体游戏规则
+                                
                                 【格式要求】
-                                游戏规则：
-                                xxx
                                 游戏代码:
-                                xxx 
+                                xxx
                             """
                         },
                         {
@@ -292,16 +359,31 @@ async def api_ask_chain(request: ChatRequest):
                 )
                 second_reply = response_2.choices[0].message.content
                 # print(second_reply)
-                reply = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
+                cut_think_reply = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
+                cut_html_reply = re.search(r"<html.*?>.*?</html>", cut_think_reply, flags=re.DOTALL)
+                reply = cut_html_reply.group(0)
+                # print(reply)
                 compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
-                # print(compressed_reply)
-                print("生成游戏成功")
-                await queue.put(json.dumps({
-                    "type": "answer",
-                    "game_name": game_name,
-                    "game_rules": game_rules,
-                    "result": compressed_reply
-                }) + "\n")
+                chunk_size = 512
+                reply_chunks = [compressed_reply[i:i + chunk_size] for i in range(0, len(compressed_reply), chunk_size)]
+                total_chunks = len(reply_chunks)
+
+                for chunk_id, chunk in enumerate(reply_chunks):
+                    chunk_data = {
+                        "type": "answer_chunk",
+                        "chunk_id": chunk_id,
+                        "total_chunks": total_chunks,
+                        "game_name": game_name if chunk_id == 0 else None,  # 仅在第一个块发送游戏名称
+                        "game_rules": game_rules if chunk_id == 0 else None,  # 仅在第一个块发送游戏规则
+                        "data": chunk  # 直接发送切块后的 Base64 数据
+                    }
+                    # print("chunk_id:", chunk_id)
+
+                    # 发送数据块
+                    await queue.put(json.dumps(chunk_data) + "\n")
+                    # 发送结束标识
+                await queue.put(json.dumps({"type": "end"}) + "\n")
+                # print("游戏生成成功")
 
             except Exception as e:
                 # 推送错误信息
@@ -315,7 +397,7 @@ async def api_ask_chain(request: ChatRequest):
             while True:
                 item = await queue.get()
                 yield item
-                if item.startswith('{"type": "answer"'):
+                if item.startswith('{"type": "end"'):
                     break
         finally:
             # 取消心跳任务
@@ -325,10 +407,12 @@ async def api_ask_chain(request: ChatRequest):
 
     return StreamingResponse(event_stream(), media_type='application/x-ndjson')
 
+
 class OptimizeGameRequest(BaseModel):
     question: str
     code: str
     user_token: str
+
 
 @router.post('/game/optimize')
 async def api_optimize(request: OptimizeGameRequest):
@@ -361,8 +445,8 @@ async def api_optimize(request: OptimizeGameRequest):
                 # print(first_prompt)
                 response = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model='gpt-4o',
-                    # model='o1',
+                    # model='gpt-4o',
+                    model='o1',
                     messages=[
                         {
                             "role": "system",
@@ -387,14 +471,26 @@ async def api_optimize(request: OptimizeGameRequest):
                 # print(game_rules)
                 compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
                 # print(compressed_reply)
-                print("游戏优化成功")
-                await queue.put(json.dumps({
-                    "type": "answer",
-                    "result": compressed_reply,
-                    "game_name": game_name,
-                    "game_rules": game_rules,
-                }) + "\n")
 
+                chunk_size = 512  # 每块大小
+                reply_chunks = [compressed_reply[i:i + chunk_size] for i in range(0, len(compressed_reply), chunk_size)]
+                total_chunks = len(reply_chunks)
+
+                for chunk_id, chunk in enumerate(reply_chunks):
+                    chunk_data = {
+                        "type": "answer_chunk",
+                        "chunk_id": chunk_id,
+                        "total_chunks": total_chunks,
+                        "game_name": game_name if chunk_id == 0 else None,  # 仅��第一个块发送游戏名称
+                        "game_rules": game_rules if chunk_id == 0 else None,  # 仅在第一个块发送游戏规则
+                        "data": chunk  # 直接发送切块后的 Base64 数据
+                    }
+
+                    # 发送数据块
+                    await queue.put(json.dumps(chunk_data) + "\n")
+
+                await queue.put(json.dumps({"type": "end"}) + "\n")
+                print("游戏优化成功")
             except Exception as e:
                 # 推送错误信息
                 await queue.put(json.dumps({"type": "error", "text": str(e)}) + "\n")
@@ -417,6 +513,7 @@ async def api_optimize(request: OptimizeGameRequest):
 
     return StreamingResponse(event_stream(), media_type='application/x-ndjson')
 
+
 @router.post('/game/askname')
 async def api_ask_getname(request: ChatRequest):
     question = request.question
@@ -433,12 +530,14 @@ async def api_ask_getname(request: ChatRequest):
         # model=user.get('model_name'),
         model="gpt-4o-mini",
         messages=[
-            {"role": "user", "content": f"请给下面的代码游戏内容取一个名字，与教育相关，要求字数不超过10个字，直接生成名字不需要解释，不要md格式，纯文字输出，下面是代码内容:{question}"}
+            {"role": "user",
+             "content": f"请给下面的代码游戏内容取一个名字，与教育相关，要求字数不超过10个字，直接生成名字不需要解释，不要md格式，纯文字输出，下面是代码内容:{question}"}
         ]
     )
     assistant_reply = response.choices[0].message.content
     cleaned_reply = assistant_reply.lstrip("\n")
     return cleaned_reply
+
 
 @router.post('/game/askrules')
 async def api_ask_getaskrules(request: ChatRequest):

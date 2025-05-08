@@ -1,16 +1,18 @@
 // src/components/ChatLayout.jsx
 import React, {useEffect, useRef, useState} from "react";
-import {Layout, Button, Input, Typography, Splitter, Spin, message, Popconfirm, Modal, Popover, Tooltip} from "antd";
-import {EditOutlined, MailOutlined, ArrowDownOutlined} from "@ant-design/icons";
-import {getToken} from "../../utils/auth.ts";
+import {Button, Input, Layout, message, Modal, Popconfirm, Popover, Spin, Splitter, Tooltip, Typography} from "antd";
 import {
+    AppstoreAddOutlined,
+    ArrowDownOutlined,
+    BookOutlined,
     CaretRightOutlined,
-    VerticalAlignBottomOutlined,
     ClearOutlined,
     CodeOutlined,
-    BookOutlined,
-    AppstoreAddOutlined
+    EditOutlined,
+    MailOutlined,
+    VerticalAlignBottomOutlined
 } from "@ant-design/icons";
+import {getToken} from "../../utils/auth.ts";
 import axios from "axios";
 import pako from "pako";
 import OptimizeGameModal from "../../components/modals/optimizeGameModal";
@@ -56,11 +58,25 @@ const Game = () => {
         }
     };
 
-    function decompressResult(compressedResult) {
-        const compressedData = atob(compressedResult); // Base64 解码
-        const uint8Array = new Uint8Array(compressedData.split("").map(c => c.charCodeAt(0)));
-        const decompressedData = new TextDecoder("utf-8").decode(pako.inflate(uint8Array)); // 使用 pako.js 解压
-        return decompressedData;
+    // function decompressResult(compressedResult) {
+    //     const compressedData = atob(compressedResult); // Base64 解码
+    //     const uint8Array = new Uint8Array(compressedData.split("").map(c => c.charCodeAt(0)));
+    //     const decompressedData = new TextDecoder("utf-8").decode(pako.inflate(uint8Array)); // 使用 pako.js 解压
+    //     return decompressedData;
+    // }
+    function decompressResult(base64Data: string): string {
+        try {
+            // Base64 解码
+            const compressedData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            // console.log("解码后的压缩数据:", compressedData); // 调试：打印解码后的压缩数据
+            // 使用 pako 解压
+            const decompressedData = pako.inflate(compressedData, {to: "string"});
+            // console.log("解压后的数据:", decompressedData); // 调试：打印解压后的数据
+            return decompressedData;
+        } catch (error) {
+            console.error("解压数据失败:", error); // 调试：打印解压错误
+            return "";
+        }
     }
 
     const sendMessage = async (question: string) => {
@@ -89,7 +105,9 @@ const Game = () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
 
-            let fullAnswer = "";
+            let chunks: string[] = []; // 存储所有数据块
+            let gameName = ""; // 游戏名称
+            let gameRules = ""; // 游戏规则
 
             while (true) {
                 const {value, done} = await reader.read();
@@ -98,24 +116,39 @@ const Game = () => {
                 const lines = decoder.decode(value).split("\n").filter(Boolean);
                 for (const line of lines) {
                     const data = JSON.parse(line);
+
                     if (data.type === "heartbeat") {
                         console.log("❤️ 心跳");
-                    } else if (data.type === "answer") {
-                        // 拼接或组合返回的所有字段
-                        const {game_name, game_rules, result} = data;
-                        // console.log("result",data.result);
-                        const decompressedResult = decompressResult(data.result);
-                        // console.log(decompressedResult);
-                        // 构造完整的结果
-                        fullAnswer = {
-                            game_name: game_name || "",
-                            game_rules: game_rules || "",
-                            result: decompressedResult
-                        };
+                    } else if (data.type === "answer_chunk") {
+                        // console.log(data.chunk_id);
+                        // 处理分块数据
+                        if (data.chunk_id === 0) {
+                            gameName = data.game_name || ""; // 仅在第一个块接收游戏名称
+                            gameRules = data.game_rules || ""; // 仅在第一个块接收游戏规则
+                            // console.log(
+                            //     "游戏名称:", gameName,
+                            //     "游戏规则:", gameRules
+                            // );
+                        }
+                        // console.log(data.data);
+                        // 收集数据块
+                        chunks[data.chunk_id] = data.data; // 按块 ID 存储 Base64 编码的块数据
+                    } else if (data.type === "end") {
+                        console.log("数据接收完成");
                     }
                 }
             }
-            return fullAnswer;
+
+            // 拼接所有块
+            const compressedReply = chunks.join(""); // 拼接所有 Base64 数据块
+            const decompressedReply = decompressResult(compressedReply); // 解压数据
+
+            // 构造完整结果
+            return {
+                game_name: gameName,
+                game_rules: gameRules,
+                result: decompressedReply
+            };
 
         } catch (error) {
             console.error("请求失败:", error);
@@ -124,6 +157,9 @@ const Game = () => {
             setLoading(false);
         }
     };
+
+// 解压函数
+
 
     const askName = async (code) => {
         try {
@@ -774,7 +810,7 @@ const Game = () => {
                                                                 gap: "8px",
                                                             }}
                                                         >
-                                                        <Button
+                                                            <Button
                                                                 onClick={() => {
                                                                     const newHtmlCode = game[msg.uuid].code;
                                                                     runHtmlCode(newHtmlCode); // 更新 htmlCode

@@ -1,13 +1,12 @@
-import React, {useState, useRef, useEffect} from "react";
-import {Modal, Input, Button, Spin, Popover, message, Radio} from "antd";
-import {CaretRightOutlined, VerticalAlignBottomOutlined, BookOutlined, CodeOutlined} from "@ant-design/icons";
+import React, {useEffect, useRef, useState} from "react";
+import {Button, Input, message, Modal, Popover, Radio, Spin} from "antd";
+import {BookOutlined, CaretRightOutlined, CodeOutlined, VerticalAlignBottomOutlined} from "@ant-design/icons";
 import {getToken} from "../../../utils/auth.ts";
-import pako from "pako";
 
 const generateUUID = () => {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
 };
-const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressResult}) => {
+const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize, decompressResult}) => {
     const [userMessage, setUserMessage] = useState("");
     const [gameOptimize, setGameOptimize] = useState({}); // 当前游戏内容
     const [game, setGame] = useState({});//游戏记录
@@ -15,7 +14,6 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressRes
     const [loading, setLoading] = useState(false); // AI加载状态
     const chatContainerRef = useRef(null);
     const token = getToken();
-
 
     const runHtmlCode = (code) => {
         const newWindow = window.open("", "_blank", "width=1000,height=800");
@@ -52,7 +50,6 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressRes
         let cleanResult = code.replace(/'''html[\s\S]*?'''/gi, ""); // 去除 '''html 标记及其内容
         const htmlMatch = cleanResult.match(/(?:<!DOCTYPE html>\s*)?<html[\s\S]*?>[\s\S]*?<\/html>/i);
         const cleanCode = htmlMatch ? htmlMatch[0] : "";
-
         return {
             uuid: data.uuid || "",
             name: cleanName,
@@ -60,7 +57,6 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressRes
             code: cleanCode,
         };
     };
-
 
     const optimizeGame = async (game, query) => {
         try {
@@ -87,51 +83,70 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressRes
             const decoder = new TextDecoder("utf-8");
 
             let optimizedResult = null; // 存储优化后的结果
+            let done = false;
+            let decompressedChunks = [];
 
-            while (true) {
-                const {value, done} = await reader.read();
-                if (done) break;
+            while (!done) {
+                const {value, done: readerDone} = await reader.read();
+                done = readerDone; // 更新循环控制变量
 
-                const lines = decoder.decode(value).split("\n").filter(Boolean);
-                for (const line of lines) {
-                    try {
-                        const data = JSON.parse(line); // 解析流中的 JSON 数据
-                        if (data.type === "heartbeat") {
-                            console.log("❤️ 心跳");
-                        } else if (data.type === "answer") {
-                            // console.log(data);
-                            const uuid = generateUUID();
-                            const decompressedResult = decompressResult(data.result);
-                            const extractedData = {
-                                uuid: uuid,
-                                name: data.game_name,
-                                rules: data.game_rules,
-                                code: decompressedResult,
-                            };
-                            // console.log("清理前代码"+JSON.stringify(extractedData.code));
-                            const cleanedData = await cleanExtractedData(extractedData);
-                            // console.log("清理后内容"+JSON.stringify(cleanedData.code));
-                            optimizedResult = cleanedData;
+                if (value) {
+                    const lines = decoder.decode(value).split("\n").filter(Boolean);
+                    for (const line of lines) {
+                        try {
+                            const data = JSON.parse(line); // 解析流中的 JSON 数据
+                            if (data.type === "heartbeat") {
+                                console.log("❤️ 心跳");
+                            } else if (data.type === "answer_chunk") {
+                                // 如果是数据块，解压并拼接
+                                decompressedChunks.push(data.data); // 收集 Base64 数据块
+
+                                if (data.chunk_id === 0) {
+                                    // 仅在第一个块获取游戏名称和规则
+                                    optimizedResult = {
+                                        uuid: generateUUID(),
+                                        name: data.game_name,
+                                        rules: data.game_rules,
+                                        code: null, // 最终拼接完成后更新
+                                    };
+                                }
+                            } else if (data.type === "end") {
+                                // 数据传输完成，拼接所有块并解压
+                                console.log("数据传输完成，开始解压...");
+                                const compressedData = decompressedChunks.join(""); // 拼接所有 Base64 数据块
+                                const decompressedResult = decompressResult(compressedData); // 解压完整数据
+                                optimizedResult.code = decompressedResult; // 更新优化结果的代码部分
+                                try {
+                                    const cleanedData = await cleanExtractedData(optimizedResult);
+                                    optimizedResult = cleanedData;
+                                    // console.log("清理后的数据:", cleanedData);
+                                } catch (cleanError) {
+                                    console.error("清理数据失败:", cleanError);
+                                    throw new Error("数据清理失败");
+                                }
+                                done = true; // 强制退出循环
+                                break; // 退出当前数据处理
+                            }
+                        } catch (error) {
+                            console.error("JSON parse error:", error, line);
                         }
-                    } catch (error) {
-                        console.error("JSON parse error:", error, line);
                     }
                 }
             }
-
+            // console.log("最终优化结果:", optimizedResult);
             if (optimizedResult) {
-                // console.log("优化结果:", JSON.stringify(optimizedResult));
-
-                // 更新游戏内容
                 const updatedGame = {
                     uuid: optimizedResult.uuid,
-                    name: optimizedResult.name, // 从 extractCode 中获取 name 或补充后的 name
-                    rules: optimizedResult.rules, // 从 extractCode 中获取 rules 或补充后的 rules
-                    code: optimizedResult.code, // 从 extractCode 中获取 code
+                    name: optimizedResult.name,
+                    rules: optimizedResult.rules,
+                    code: optimizedResult.code,
                 };
+                // console.log("更新后的游戏数据:", JSON.stringify(updatedGame)); // 添加调试日志
+                // console.log("游戏优化成功！");
                 message.success("游戏优化成功！");
-                return updatedGame; // 返回优化后的游戏
+                return updatedGame;
             } else {
+                // console.log("游戏优化失败！");
                 message.error("游戏优化失败！");
                 return null;
             }
@@ -370,7 +385,7 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize,decompressRes
                     )}
                 </div>
 
-                <span style={{color:"lightblue"}}>//您可以选择需要优化的游戏</span>
+                <span style={{color: "lightblue"}}>//您可以选择需要优化的游戏</span>
                 {/* 输入框与发送按钮 */}
                 <div
                     style={{
