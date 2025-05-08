@@ -208,46 +208,42 @@ async def api_ask_chain(request: ChatRequest):
         async def main_logic(queue):
             try:
                 # 第一次调用 API
-                first_prompt = f"""【用户需求】：{question}"""
+                first_prompt = f"""【生成需求】：{question}"""
                 # print(first_prompt)
                 response_1 = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model='o1',
+                    model='deepseek-v3',
                     # model='gpt-4o',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                            现在你是 HTML5 游戏规划专家，请根据用户需求，输出该游戏的核心规划，包含以下精简模块，并严格用下方结构化格式返回(不要多余文字):
-                            1.教学背景与目标
-                                教学主题:
-                                教学目标:
-                            2.页面布局与样式
-                                标题样式(字号/颜色)
-                                背景与配色
-                                班级互动区(教师参数面板+成绩面板)
-                            3.核心玩法与规则
-                                目标说明
-                                操作方式
-                                计分与奖励
-                                游戏规则需要保证完整性
-                            4. 技术实现与架构
-                                技术栈
-                                模块划分(数据层/视图层/逻辑层)
-                                数据流(用户操作一事件回调→状态更新一渲染)
-                                兼顾EDGE的格式
-                            5.数据导入
-                                支持格式(txt/csv/json)
-                                上传与验证
-                            6.逻辑流程
-                                启动流程:参数校验一加载一渲染
-                                回合流程:点击一校验一更新一反馈
-                            7.交互反馈与按钮
-                                视觉/音效反馈
-                                -“开始游戏”/“重新开始“按钮
-                                
-                            **特别注意点：游戏名称和游戏规则必须保证按照给定格式输出
+                            请你作为一名资深教育游戏策划，你需要先根据用户需求指定具体教育场景，再根据教学的需求，输出一份完整的教育游戏设计文档，要求分块清晰、覆盖以下要素：
                             
+                            {页面整体布局与样式}
+                            1. 页面标题：网页顶端显示游戏名称（字体、字号、颜色说明）。  
+                            2. 背景风格：指定背景颜色或渐变色、背景图案或主题插画。  
+                            3. 布局区域：说明页面主要分几大区域（游戏画布／单词区／信息栏／操作按钮），并标出每块的相对位置和尺寸比例。  
+                            4. 装饰元素：在页面哪些位置放置表情、图标或动效，提升趣味性。
+                            
+                            {核心玩法与交互}
+                            1. 游戏主题：简要背景故事或玩法比喻。  
+                            2. 操作方式：玩家点击、拖拽、键盘或触摸的具体交互。  
+                            3. 胜负条件：明确什么情况下挑战成功、什么情况下挑战失败。  
+                            4. 得分系统：基本计分规则，连对/连错如何增减分，最大分数或时间奖励。  
+                            5. 难度递增：关卡数或无尽模式的动态难度变化说明（速度、数量、复杂度等）。
+                            
+                            {道具／元素设定}
+                            1. 核心元素：列出所有游戏元素（如英文单词按钮、中文单词按钮、道具、障碍）。  
+                            2. 元素效果：每个元素的行为和特效（点击、消除、碰撞、消失）。  
+                            3. 特殊交互：语音发音（点击英文单词时）、错误提示音、胜利特效（烟花、动画）等。
+                            
+                            {UI 信息与提示}
+                            1. 倒计时设置：输入框+确认按钮的交互流程，倒计时结束触发的提示。  
+                            2. 分数/生命/关卡面板：分别显示哪些数值，更新频率。  
+                            3. 开始/暂停/重新开始：对应按钮样式、位置和状态切换逻辑。  
+                            4. 弹窗提示：挑战成功、挑战失败、重新开始确认等文字和动画效果。
+
                             输出格式：
                             游戏名称：
                             XXX
@@ -255,47 +251,17 @@ async def api_ask_chain(request: ChatRequest):
                             游戏规则：
                             XXX
                                 
-                            教学背景与目标:
-                            教学主题:
-                            教学目标:
+                            页面整体布局与样式：
+                            XXX
                                 
-                            参考案例：
-                            游戏名称：
-                            数学贪吃蛇
+                            核心玩法与交互：
+                            XXX
                                 
-                            游戏规则：
-                            玩家需要使用上下左右键控制贪吃蛇吃到特定的球
+                            道具／元素设定：
+                            XXX
                                 
-                            页面布局与样式:
-                                标题样式:
-                                字号: "xx"
-                                颜色: "#xxxxxx"
-                                背景: "#xxxxxx"
-                            互动区:
-                                教师面板: ["倒计时","难度"]
-                                成绩面板: ["个人得分","小组进度"]
-                                
-                            核心玩法与规则:
-                                目标说明: "…"
-                                操作方式: "…"
-                                计分与奖励: "…"
-                                
-                            技术实现与架构:
-                                技术栈: ["HTML5","CSS3","JavaScript"]
-                                模块划分: ["数据层","视图层","逻辑层"]
-                                数据流: "用户操作→回调→状态更新→渲染"
-                                
-                            数据导入:
-                                格式: ["txt","csv","json"]
-                                验证: "文件格式及内容校验流程"
-                                
-                            逻辑流程:
-                                启动流程: "校验→加载→渲染"
-                                回合流程: "点击→校验→更新→反馈"
-                                
-                            交互反馈与按钮:
-                                反馈: ["点击高亮","正确/错误音效","消除特效"]
-                                按钮: ["开始游戏","重新开始"]
+                            UI 信息与提示：
+                            XXX
                             """
                         },
                         {
@@ -321,34 +287,40 @@ async def api_ask_chain(request: ChatRequest):
                     print("未找到匹配的游戏名称和规则")
                     # print(first_reply)
                     return
-                # 第二次api调用
-                second_prompt = f"""\n【游戏规划】：{first_reply}【用户需求】：{question}"""
-                # print(second_prompt)
-                response_2 = await asyncio.to_thread(
+                mid_prompt = f"""【第1步的设计文档内容】：{first_reply}"""
+                # print(first_prompt)
+                response_mid = await asyncio.to_thread(
                     client.chat.completions.create,
-                    # model='deepseek-reasoner',
+                    # model='deepseek-v3',
+                    # model='gpt-4o',
                     model='o1',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                                【名称】
-                                HTML游戏生成助手
-                                【操作指令】
-                                1.根据已经有规则和游戏内容素材生成html、css、JavaScript
-                                2.使用HTML语言编写游戏规则和使用流程的展示页面，包括页面头部、主体内容以及交互操作的布局
-                                3.重点:必须包含用户提供的所有上课内容
-                                4.函数实现过程要解决规划中提到的重点问题
-
-                                【规则】
-                                1.HTML代码格式必须符合规范以确保兼容性和可读性，同时需避免使用未支持的HTML标签
-                                2.注意:所有代码都放在一个html，结果返回完整的htmI代码
-                                3.保证有20左右的函数完成游戏逻辑的实现，生成的函数要有健壮性
-                                4.请保证有400行左右代码提供完整的逻辑保障，但不需要出现具体游戏规则
-                                
-                                【格式要求】
-                                游戏代码:
-                                xxx
+                               基于第 1 步的设计文档，请生成一个单文件 HTML 游戏的**骨架代码**，保持最小化实现，不包含具体逻辑，但要能直接在浏览器打开且不报错。要求： {HTML 结构} - DOCTYPE、<html>、<head>、<body> 三段式框架 - 在<head> 内嵌 <style>，声明所有页面区域的容器（如 #header, #game-area, #info-panel, #controls）和必要的 class 占位。 {CSS 占位} - 为每个大区块写基本布局（flex/grid），尺寸、颜色注释 - 按钮、输入框、标题的 class/id 声明，不写具体样式，仅写注释提示。 {JavaScript 架构} - 在 <body> 底部内嵌 <script> - 定义全局变量与 state（如 `let gameState = 'init'`、`let score = 0`、`let timer = null`） - 占位函数：`init()`, `startGame()`, `update()`, `render()`, `resetGame()`, `bindEvents()` - 游戏循环框架：`function loop(){ requestAnimationFrame(loop); update(); render(); }` - 事件监听占位：`document.getElementById('start-btn').addEventListener('click', …)` 请保证这份骨架能在控制台无报错，仅呈现空白布局与按钮／输入框等静态元素。
+                            """
+                        },
+                        {
+                            "role": "user",
+                            "content": mid_prompt
+                        }
+                    ]
+                )
+                mid_reply = response_mid.choices[0].message.content
+                # 第二次api调用
+                second_prompt = f"""【骨架代码】：{mid_reply}"""
+                # print(second_prompt)
+                response_2 = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    # model='deepseek-v3',
+                    model='o1',
+                    # model='gpt-4o',
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": """
+                                请在骨架代码基础上补全所有前端逻辑，实现一个可用的单文件 HTML 游戏。要点： 1. 渲染动态元素（如按钮、画布、倒计时、分数）。 2. 交互响应：用户点击/输入触发逻辑（计时、选择、匹配等）。 3. 音效与特效：按需播放音频、动画、提示。 4. 游戏流程：开始、进行、胜负判定、重置。 5. 性能与清理：移除已用元素、避免内存泄漏。 6. 注释与可配置：对主要函数、配置项添加说明，方便调整和扩展。 一次性输出可在主流浏览器中直接运行的完整单文件 HTML 代码。
                             """
                         },
                         {
