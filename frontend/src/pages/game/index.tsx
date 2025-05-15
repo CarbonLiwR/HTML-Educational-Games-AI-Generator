@@ -80,6 +80,10 @@ const Game = () => {
     }
 
     const sendMessage = async (question: string) => {
+        if(!question){
+            message.error("请输入内容！");
+            return ;
+        }
         const trimmedMessage = question.trim();
         if (!trimmedMessage) return;
         setLoading(true);

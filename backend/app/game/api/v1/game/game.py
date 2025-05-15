@@ -195,6 +195,15 @@ async def api_ask_chain(request: ChatRequest):
     )
 
     async def event_stream():
+        #设计师
+        model1='gpt-4o'
+        #游戏骨架
+        model2='deepseek-reasoner'
+        #游戏代码实现
+        model3='o1'
+        #游戏优化
+        model4='o1'
+
         # 心跳
         async def heartbeat_sender(queue):
             try:
@@ -212,13 +221,13 @@ async def api_ask_chain(request: ChatRequest):
                 # print(first_prompt)
                 response_1 = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model='deepseek-v3',
-                    # model='gpt-4o',
+                    # model='deepseek-reasoner',
+                    model=model1,
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                            请你作为一名资深教育游戏策划，你需要先根据用户需求指定具体教育场景，再根据教学的需求，输出一份完整的教育游戏设计文档，要求分块清晰、覆盖以下要素：
+                            请你作为一名资深游戏策划，你根据用户的需求，输出一份完整的游戏设计文档，要求分块清晰、覆盖以下要素：
                             
                             {页面整体布局与样式}
                             1. 页面标题：网页顶端显示游戏名称（字体、字号、颜色说明）。  
@@ -275,30 +284,31 @@ async def api_ask_chain(request: ChatRequest):
                 # first_reply = re.sub(r"yaml|YAML|```", "", first_reply, flags=re.IGNORECASE)
                 first_reply = first_reply.strip()
 
-                pattern = r"游戏名称[:：]\s*(.*?)\n+游戏规则[:：]\s*(.*?)\n+"
-                match = re.search(pattern, first_reply, re.S)
+                # 匹配游戏名称
+                name_pattern = r"游戏名称[:：]\s*(.*?)\n"
+                name_match = re.search(name_pattern, first_reply, re.S)
 
-                if match:
-                    game_name = match.group(1).strip() if match.group(1) else ""
-                    game_rules = match.group(2).strip() if match.group(2) else ""
-                    # print("游戏名称:", game_name)
-                    # print("游戏规则:", game_rules)
-                else:
-                    print("未找到匹配的游戏名称和规则")
-                    # print(first_reply)
-                    return
+                # 匹配游戏规则
+                rules_pattern = r"游戏规则[:：]\s*(.*?)\n"
+                rules_match = re.search(rules_pattern, first_reply, re.S)
+
                 mid_prompt = f"""【第1步的设计文档内容】：{first_reply}"""
                 # print(first_prompt)
                 response_mid = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model='deepseek-v3',
+                    model=model2,
                     # model='gpt-4o',
                     # model='o1',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                               基于第 1 步的设计文档，请生成一个单文件 HTML 游戏的**骨架代码**，保持最小化实现，不包含具体逻辑，但要能直接在浏览器打开且不报错。要求： {HTML 结构} - DOCTYPE、<html>、<head>、<body> 三段式框架 - 在<head> 内嵌 <style>，声明所有页面区域的容器（如 #header, #game-area, #info-panel, #controls）和必要的 class 占位。 {CSS 占位} - 为每个大区块写基本布局（flex/grid），尺寸、颜色注释 - 按钮、输入框、标题的 class/id 声明，不写具体样式，仅写注释提示。 {JavaScript 架构} - 在 <body> 底部内嵌 <script> - 定义全局变量与 state（如 `let gameState = 'init'`、`let score = 0`、`let timer = null`） - 占位函数：`init()`, `startGame()`, `update()`, `render()`, `resetGame()`, `bindEvents()` - 游戏循环框架：`function loop(){ requestAnimationFrame(loop); update(); render(); }` - 事件监听占位：`document.getElementById('start-btn').addEventListener('click', …)` 请保证这份骨架能在控制台无报错，仅呈现空白布局与按钮／输入框等静态元素。
+                               基于第 1 步的设计文档，请生成一个单文件 HTML 游戏的**骨架代码**，保持最小化实现，不包含具体逻辑，但要能直接在浏览器打开且不报错 2.要设计出可能用到的函数名称。
+                               要求： 
+                               {HTML 结构} - DOCTYPE、<html>、<head>、<body> 三段式框架 - 在<head> 内嵌 <style>，声明所有页面区域的容器（如 #header, #game-area, #info-panel, #controls）和必要的 class 占位。 
+                               {CSS 占位} - 为每个大区块写基本布局（flex/grid），尺寸、颜色注释 - 按钮、输入框、标题的 class/id 声明，不写具体样式，仅写注释提示。 
+                               {JavaScript 架构} - 在 <body> 底部内嵌 <script> - 定义全局变量与 state（如 `let gameState = 'init'`、`let score = 0`、`let timer = null`） - 占位函数：`init()`, `startGame()`, `update()`, `render()`, `resetGame()`, `bindEvents()` - 游戏循环框架：`function loop(){ requestAnimationFrame(loop); update(); render(); }` - 事件监听占位：`document.getElementById('start-btn').addEventListener('click', …)` 请保证这份骨架能在控制台无报错，仅呈现空白布局与按钮／输入框等静态元素。
+                               
                             """
                         },
                         {
@@ -309,18 +319,25 @@ async def api_ask_chain(request: ChatRequest):
                 )
                 mid_reply = response_mid.choices[0].message.content
                 # 第二次api调用
+                mid_reply = re.sub(r"<think>.*?</think>", "", mid_reply, flags=re.DOTALL)
                 second_prompt = f"""【骨架代码】：{mid_reply}"""
-                # print(second_prompt)
+                print(second_prompt)
                 response_2 = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model='deepseek-reasoner',
+                    model=model3,
                     # model='o1',
                     # model='gpt-4o',
                     messages=[
                         {
                             "role": "system",
                             "content": """
-                                请在骨架代码基础上补全所有前端逻辑，实现一个可用的单文件 HTML 游戏。要点： 1. 渲染动态元素（如按钮、画布、倒计时、分数）。 2. 交互响应：用户点击/输入触发逻辑（计时、选择、匹配等）。 3. 音效与特效：按需播放音频、动画、提示。 4. 游戏流程：开始、进行、胜负判定、重置。 5. 性能与清理：移除已用元素、避免内存泄漏。 6. 注释与可配置：对主要函数、配置项添加说明，方便调整和扩展。 一次性输出可在主流浏览器中直接运行的完整单文件 HTML 代码。
+                                请在骨架代码基础上补全所有前端逻辑，实现一个可用的单文件 HTML 游戏。
+                                要点： 1. 渲染动态元素（如按钮、画布、倒计时、分数）。 
+                                2. 交互响应：用户点击/输入触发逻辑（计时、选择、匹配等）。 
+                                3. 音效与特效：按需播放音频、动画、提示。 
+                                4. 游戏流程：开始、进行、胜负判定、重置。 
+                                5. 性能与清理：移除已用元素、避免内存泄漏。 
+                                6. 注释与可配置：对主要函数、配置项添加说明，方便调整和扩展。 一次性输出可在主流浏览器中直接运行的完整单文件 HTML 代码。
                             """
                         },
                         {
@@ -331,9 +348,52 @@ async def api_ask_chain(request: ChatRequest):
                 )
                 second_reply = response_2.choices[0].message.content
                 # print(second_reply)
-                cut_think_reply = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
-                cut_html_reply = re.search(r"<html.*?>.*?</html>", cut_think_reply, flags=re.DOTALL)
-                reply = cut_html_reply.group(0)
+                cut_think_reply3 = re.sub(r"<think>.*?</think>", "", second_reply, flags=re.DOTALL)
+                cut_html_reply3 = re.search(r"<html.*?>.*?</html>", cut_think_reply3, flags=re.DOTALL)
+                reply3 = cut_html_reply3.group(0)
+
+                if name_match:
+                    game_name = name_match.group(1).strip() if name_match.group(1) else ""
+                else:
+                    print("no name")
+                    game_name = await api_ask_getname(question=reply,user_token=user_token)  # 调用获取游戏名称的函数
+
+                # 提取游戏规则
+                if rules_match:
+                    game_rules = rules_match.group(1).strip() if rules_match.group(1) else ""
+                else:
+                    print("no rule")
+                    game_rules = await api_ask_getaskrules(question=reply,user_token=user_token)  # 调用获取游戏规则的函数
+
+                last_prompt = f"""【需要修复的代码】：{reply3}【用户需求】：上面的代码游戏无法正常使用，界面不合适，需要优化页面。"""
+                # print(last_prompt)
+                response_last = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    model=model4,
+                    # model='gpt-4o',
+                    # model='o1',
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": """
+                                在保持整体代码不变的情况下，根据下面的代码内容和用户需求优化代码，优化后返回一个HTML：
+                             """
+                        },
+                        {
+                            "role": "user",
+                            "content": last_prompt
+                        }
+                    ]
+                )
+
+                last_reply = response_last.choices[0].message.content
+                # print(second_reply)
+                cut_think_reply_last = re.sub(r"<think>.*?</think>", "", last_reply, flags=re.DOTALL)
+                cut_html_reply_last = re.search(r"<html.*?>.*?</html>", cut_think_reply_last, flags=re.DOTALL)
+                reply = cut_html_reply_last.group(0)
+
+
+
                 # print(reply)
                 compressed_reply = base64.b64encode(gzip.compress(reply.encode("utf-8"))).decode("utf-8")
                 chunk_size = 512

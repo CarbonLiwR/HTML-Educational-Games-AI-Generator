@@ -157,11 +157,15 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize, decompressRe
         }
     };
     // 处理优化请求
-    const handleOptimize = async (message) => {
+    const handleOptimize = async (messages) => {
         // 显示用户消息
+        if(!messages){
+            message.error("请输入优化内容！");
+            return;
+        }
         setMessages((prevMessages) => [
             ...prevMessages,
-            {sender: "user", text: message}, // 用户消息立即显示
+            {sender: "user", text: messages}, // 用户消息立即显示
         ]);
 
         setLoading(true); // 设置加载状态
@@ -170,7 +174,7 @@ const OptimizeModal = ({visible, onClose, saveCode, gameToOptimize, decompressRe
         // return
         // 调用优化函数
         // console.log(JSON.stringify(gameOptimize));
-        const optimizedGame = await optimizeGame(gameOptimize, message); // 调用传入的优化函数，返回最新的 game
+        const optimizedGame = await optimizeGame(gameOptimize, messages); // 调用传入的优化函数，返回最新的 game
 
         setLoading(false); // 取消加载状态
 
