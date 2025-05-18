@@ -80,9 +80,9 @@ const Game = () => {
     }
 
     const sendMessage = async (question: string) => {
-        if(!question){
+        if (!question) {
             message.error("请输入内容！");
-            return ;
+            return;
         }
         const trimmedMessage = question.trim();
         if (!trimmedMessage) return;
@@ -161,10 +161,7 @@ const Game = () => {
             setLoading(false);
         }
     };
-
 // 解压函数
-
-
     const askName = async (code) => {
         try {
             const response = await fetch('http://localhost:8000/api/v1/game/askname', {
@@ -407,6 +404,19 @@ const Game = () => {
         setIsModalVisible(true); // 显示弹出框
     };
 
+    // 动态计算卡片宽度
+    const cardContainerStyle = {
+        display: "grid",
+        gridTemplateColumns: `repeat(${columns}, 1fr)`, // 动态调整列宽，卡片始终填充
+        gridGap: "16px", // 卡片间距
+        padding: "16px",
+        overflowX: "hidden", // 禁止横向滚动条
+        overflowY: "auto", // 允许纵向滚动
+        alignItems: "start", // 让内容从顶部开始排列
+        gridAutoRows: "min-content", // 每行的高度适应内容
+    };
+
+
     async function fetchGames() {
         try {
             const response = await fetch("http://127.0.0.1:8000/api/v1/game/get_all", {
@@ -445,9 +455,10 @@ const Game = () => {
     useEffect(() => {
         const resizeObserver = new ResizeObserver((entries) => {
             for (let entry of entries) {
-                const width = entry.contentRect.width;
-                const newColumns = Math.max(1, Math.floor(width / cardWidth)); // 计算列数，至少 1 列
-                setColumns(newColumns);
+                const width = entry.contentRect.width; // 获取容器宽度
+                const maxColumns = Math.floor(width / cardWidth); // 计算最大列数
+                const limitedColumns = Math.min(5, maxColumns-1); // 限制列数最多为 5
+                setColumns(Math.max(1, limitedColumns)); // 更新列数
             }
         });
 
@@ -462,12 +473,13 @@ const Game = () => {
         };
     }, [cardWidth]);
 
+
     return (
         <Layout style={{height: "85vh", display: "flex", backgroundColor: "#F5F5F5"}}>
             <Splitter
                 style={{display: "flex", height: "100%"}}
             >
-                <Splitter.Panel defaultSize={670} min={670}>
+                <Splitter.Panel defaultSize={800} min={500}>
                     <div
                         ref={siderRef} // 绑定 ref 用于监听宽度
                         style={{
@@ -533,20 +545,8 @@ const Game = () => {
                                     <Text style={{color: "#999"}}>暂无数据</Text>
                                 </div>
                             ) : (
-                                <div
-                                    style={{
-                                        flex: 1,
-                                        display: "grid",
-                                        gridTemplateColumns: `repeat(${columns}, 1fr)`, // 动态列数
-                                        gridGap: "16px", // 间距
-                                        padding: "16px",
-                                        overflowY: "auto", // 滚动
-                                        alignItems: "start", // 让内容从顶部开始排列
-                                        gridAutoRows: "min-content", // 每行的高度适应内容
-                                    }}
-                                >
+                                <div style={cardContainerStyle}>
                                     {gamelist.map((game, index) => {
-                                        // 随机从马卡龙配色中选择一个颜色
                                         const randomColor = macaronColors[index % macaronColors.length];
 
                                         return (
